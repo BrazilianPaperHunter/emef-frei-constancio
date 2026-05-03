@@ -1,51 +1,29 @@
-// Substitua o início do seu <script> por este bloco mais "resiliente"
-let _supabase;
-
-async function inicializarSupabase() {
-    try {
-        const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
-        
-        // Verifica se a biblioteca foi carregada
-        if (typeof supabase === 'undefined') {
-            throw new Error("Biblioteca Supabase não encontrada!");
-        }
-        
-        _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        await verificarSessao();
-    } catch (err) {
-        document.getElementById('nomeBemVindo').innerText = "Erro de Conexão";
-        console.error(err);
-    }
-}
-
-// Altere o window.onload para a nova função
-window.onload = inicializarSupabase;
-    
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Administrativo - EMEF Frei Constâncio</title>
-    <!-- Importante: Biblioteca do Supabase -->
+    <!-- Biblioteca do Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Open Sans', sans-serif; margin: 0; background-color: #f4f7f6; color: #333; }
         header { background-color: #004a99; color: white; padding: 1rem; text-align: center; }
         .container { padding: 20px; max-width: 1200px; margin: auto; }
         .welcome-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 25px; }
-        .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .menu-item { background: #e9ecef; padding: 20px; border-radius: 8px; text-align: center; cursor: pointer; border: 1px solid #dee2e6; font-weight: bold; transition: 0.3s; color: #333; }
         .menu-item:hover { background: #dee2e6; transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .secao-diario { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 15px; }
+        .secao-diario { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 15px; min-width: 800px; }
         th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
         th { background-color: #004a99; color: white; }
-        input[type="number"] { width: 45px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 3px; }
+        input[type="number"] { width: 50px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 3px; }
         .media-res { font-weight: bold; }
         .media-azul { color: #004a99; }
         .media-vermelha { color: #d9534f; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; }
+        .btn-salvar:hover { background-color: #218838; }
     </style>
 </head>
 <body>
@@ -100,64 +78,89 @@ window.onload = inicializarSupabase;
 </div>
 
 <script>
+    // Configurações Globais
     const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+    let _supabase;
     let PROFESSOR_NOME = ""; 
 
-    async function verificarSessao() {
+    // 1. Inicialização Única
+    async function inicializarApp() {
         try {
-            const { data: { user } } = await _supabase.auth.getUser();
-
-            if (!user) {
-                window.location.href = "login.html"; 
-                return;
-            }
-
-            const { data: profile } = await _supabase.from('profiles')
-                .select('NOME, cargo')
-                .eq('id', user.id)
-                .single();
-
-            if (profile) {
-                PROFESSOR_NOME = profile.NOME;
-                document.getElementById('nomeBemVindo').innerText = `Bem-vindo, ${profile.NOME}`;
-                document.getElementById('cargoUsuario').innerText = profile.cargo;
-            }
-        } catch (e) {
-            console.error("Erro ao verificar sessão:", e);
+            if (typeof supabase === 'undefined') throw new Error("Biblioteca Supabase não carregada!");
+            
+            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            await verificarSessao();
+        } catch (err) {
+            document.getElementById('nomeBemVindo').innerText = "Erro de Inicialização";
+            console.error(err);
         }
     }
 
-    window.onload = verificarSessao;
+    // 2. Verificação de Usuário e Perfil
+    async function verificarSessao() {
+        const { data: { user }, error: authError } = await _supabase.auth.getUser();
 
+        if (!user || authError) {
+            window.location.href = "login.html"; 
+            return;
+        }
+
+        const { data: profile, error: profileError } = await _supabase
+            .from('profiles')
+            .select('NOME, cargo')
+            .eq('id', user.id)
+            .single();
+
+        if (profile) {
+            PROFESSOR_NOME = profile.NOME;
+            document.getElementById('nomeBemVindo').innerText = `Bem-vindo, ${profile.NOME}`;
+            document.getElementById('cargoUsuario').innerText = profile.cargo;
+        } else {
+            console.error("Perfil não encontrado:", profileError);
+            document.getElementById('nomeBemVindo').innerText = "Erro ao carregar perfil";
+        }
+    }
+
+    // 3. Carregar Atribuições (Turmas)
     async function abrirDiario() {
-        if (!PROFESSOR_NOME) return alert("Aguarde o carregamento do perfil.");
+        if (!PROFESSOR_NOME) return alert("Aguarde o carregamento do perfil ou faça login novamente.");
         
         document.getElementById('areaDiario').style.display = 'block';
-        const { data } = await _supabase.from('atribuicoes')
+        
+        const { data, error } = await _supabase
+            .from('atribuicoes')
             .select('*')
             .eq('PROFESSOR', PROFESSOR_NOME);
+
+        if (error) return console.error("Erro ao carregar atribuições:", error);
 
         const sel = document.getElementById('selectAtribuicao');
         sel.innerHTML = '<option value="">-- Selecione --</option>';
         
-        if (data) {
-            data.forEach(at => {
-                let opt = document.createElement('option');
-                opt.value = at.TURMA;
-                opt.text = `${at.DISCIPLINA} - ${at.TURMA}`;
-                opt.dataset.disciplina = at.DISCIPLINA;
-                sel.appendChild(opt);
-            });
-        }
+        data.forEach(at => {
+            let opt = document.createElement('option');
+            opt.value = at.TURMA;
+            opt.text = `${at.DISCIPLINA} - ${at.TURMA}`;
+            opt.dataset.disciplina = at.DISCIPLINA;
+            sel.appendChild(opt);
+        });
     }
 
+    // 4. Buscar Alunos
     async function carregarAlunosDoBanco() {
-        const turma = document.getElementById('selectAtribuicao').value;
-        const { data: alunos } = await _supabase.from('alunos').select('*').eq('TURMA', turma).order('NOME');
+        const sel = document.getElementById('selectAtribuicao');
+        const turma = sel.value;
+        if (!turma) return;
+
+        const { data: alunos, error } = await _supabase
+            .from('alunos')
+            .select('*')
+            .eq('TURMA', turma)
+            .order('NOME');
         
+        if (error) return alert("Erro ao carregar alunos.");
+
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = '';
         
@@ -165,12 +168,12 @@ window.onload = inicializarSupabase;
             corpo.innerHTML += `
                 <tr data-aluno="${al.NOME}">
                     <td align="left"><strong>${al.NOME}</strong></td>
-                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v1" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v2" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="r1" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v3" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v4" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="r2" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
                     <td><input type="number" class="aulas" value="40"></td>
                     <td><input type="number" class="faltas" value="0"></td>
                     <td class="media-res">-</td>
@@ -178,6 +181,7 @@ window.onload = inicializarSupabase;
         });
     }
 
+    // 5. Lógica de Cálculo de Média (Conforme sua regra de negócio)
     function calc(el) {
         const row = el.closest('tr');
         const v = (c) => parseFloat(row.querySelector(c).value) || 0;
@@ -198,10 +202,12 @@ window.onload = inicializarSupabase;
         res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
     }
 
+    // 6. Persistência no Banco
     async function salvarNoSupabase() {
         const sel = document.getElementById('selectAtribuicao');
+        if (!sel.value) return alert("Selecione uma turma antes de salvar.");
+
         const rows = document.querySelectorAll('#corpoTabela tr');
-        
         const dados = Array.from(rows).map(r => ({
             aluno_nome: r.dataset.aluno,
             turma: sel.value,
@@ -216,10 +222,17 @@ window.onload = inicializarSupabase;
             faltas: parseInt(r.querySelector('.faltas').value)
         }));
 
-        const { error } = await _supabase.from('notas').upsert(dados);
-        if (error) alert("Erro ao salvar: " + error.message);
-        else alert("Notas salvas com sucesso!");
+        const { error } = await _supabase.from('notas').upsert(dados, { onConflict: 'aluno_nome, turma, disciplina' });
+        
+        if (error) {
+            alert("Erro ao salvar: " + error.message);
+        } else {
+            alert("Notas salvas com sucesso!");
+        }
     }
+
+    // Disparo Inicial
+    window.onload = inicializarApp;
 </script>
 </body>
 </html>
