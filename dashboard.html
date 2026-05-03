@@ -1,3 +1,27 @@
+// Substitua o início do seu <script> por este bloco mais "resiliente"
+let _supabase;
+
+async function inicializarSupabase() {
+    try {
+        const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
+        
+        // Verifica se a biblioteca foi carregada
+        if (typeof supabase === 'undefined') {
+            throw new Error("Biblioteca Supabase não encontrada!");
+        }
+        
+        _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        await verificarSessao();
+    } catch (err) {
+        document.getElementById('nomeBemVindo').innerText = "Erro de Conexão";
+        console.error(err);
+    }
+}
+
+// Altere o window.onload para a nova função
+window.onload = inicializarSupabase;
+    
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
