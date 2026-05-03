@@ -43,7 +43,6 @@
             return;
         }
 
-        // Busca o CARGO real do perfil no banco
         const userId = data.user.id;
         const { data: profile, error: profileError } = await _supabase
             .from('profiles')
@@ -58,7 +57,7 @@
             alert("Login realizado! Bem-vindo, " + cargoFormatado + ".");
         }
 
-        window.location.href = 'dashboard.html?v=2';
+        window.location.href = 'dashboard.html';
     }
 </script>
 
