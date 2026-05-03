@@ -5,24 +5,32 @@
     <title>Painel Administrativo - EMEF Frei Constâncio</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Open Sans', sans-serif; margin: 0; background-color: #f4f7f6; }
+        body { font-family: 'Open Sans', sans-serif; margin: 0; background-color: #f4f7f6; color: #333; }
         header { background-color: #004a99; color: white; padding: 1rem; text-align: center; }
-        .container { padding: 20px; max-width: 1100px; margin: auto; }
-        .welcome-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
-        .menu-item { background: #e9ecef; padding: 20px; border-radius: 8px; text-align: center; cursor: pointer; border: 1px solid #dee2e6; text-decoration: none; color: #333; font-weight: bold; transition: 0.3s; }
-        .menu-item:hover { background: #dee2e6; transform: translateY(-3px); }
+        .container { padding: 20px; max-width: 1200px; margin: auto; }
+        .welcome-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 25px; }
         
+        /* Menu de Navegação */
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .menu-item { background: #fff; padding: 20px; border-radius: 8px; text-align: center; cursor: pointer; border: 1px solid #dee2e6; font-weight: bold; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .menu-item:hover { background: #004a99; color: white; transform: translateY(-3px); }
+
         /* Área de Notas */
-        .secao-notas { background: white; padding: 25px; border-radius: 8px; margin-top: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        .secao-diario { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .controles-diario { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
         th { background-color: #004a99; color: white; }
-        input[type="number"] { width: 45px; padding: 5px; text-align: center; }
+        
+        input[type="number"] { width: 45px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 3px; }
         .alerta-inclusao { color: #d9534f; font-weight: bold; font-size: 0.7rem; display: block; }
-        .media-azul { color: #004a99; font-weight: bold; }
-        .media-vermelha { color: #d9534f; font-weight: bold; }
-        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 25px; border-radius: 4px; cursor: pointer; margin-top: 15px; float: right; }
+        .media-res { font-weight: bold; font-size: 1rem; }
+        .media-azul { color: #004a99; }
+        .media-vermelha { color: #d9534f; }
+        
+        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; transition: 0.3s; }
+        .btn-salvar:hover { background-color: #218838; }
     </style>
 </head>
 <body>
@@ -34,28 +42,25 @@
 <div class="container">
     <div class="welcome-card">
         <h2>Bem-vindo, Coordenador Jefferson Bezerra</h2>
-        <p>Gestão Administrativa - EMEF Frei Constâncio</p>
-        <p><strong>Status:</strong> Presidente do Conselho Escolar (2026-2029)</p>
+        <p><strong>Presidente do Conselho Escolar (2026-2029)</strong> | EMEF Frei Constâncio</p>
     </div>
 
     <div class="menu-grid">
-        <a href="#" class="menu-item" onclick="mostrarNotas()">📝 Lançar Notas (Professor)</a>
-        <a href="cadastrar_aluno.html" class="menu-item">👥 Cadastro de Alunos</a>
-        <div class="menu-item">📋 Frequência Escolar</div>
-        <div class="menu-item">📊 Relatórios Estatísticos</div>
+        <div class="menu-item" onclick="abrirDiario()">📝 Lançamento de Notas e Frequência</div>
+        <div class="menu-item">📊 Relatórios de Rendimento (R / Power BI)</div>
+        <div class="menu-item">📋 Consultar Atribuições Docentes</div>
     </div>
 
-    <!-- Seção de Lançamento (Aparece ao clicar no menu acima) -->
-    <div id="secaoNotas" class="secao-notas">
-        <h3>Diário de Classe Eletrônico</h3>
-        <div style="margin-bottom: 15px;">
+    <!-- Área de Lançamento que consome seus dados importados -->
+    <div id="areaDiario" class="secao-diario">
+        <div class="controles-diario">
             <label><strong>Selecione a Turma/Disciplina:</strong></label>
-            <select id="selectAtribuicao" onchange="carregarAlunos()" style="padding: 8px; border-radius: 4px;">
-                <option value="">-- Selecione --</option>
+            <select id="selectAtribuicao" onchange="puxarAlunosDoBanco()" style="padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="">-- Carregando suas atribuições --</option>
             </select>
         </div>
 
-        <table id="tabelaLancamento">
+        <table id="tabelaAlunos">
             <thead>
                 <tr>
                     <th>Aluno</th>
@@ -70,9 +75,12 @@
                     <th>Média Final</th>
                 </tr>
             </thead>
-            <tbody id="corpoTabela"></tbody>
+            <tbody id="corpoTabela">
+                <!-- Linhas preenchidas automaticamente pelo JavaScript -->
+            </tbody>
         </table>
-        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar Dados no Banco</button>
+        
+        <button class="btn-salvar" onclick="gravarNoSupabase()">💾 Salvar Alterações no Diário</button>
         <div style="clear: both;"></div>
     </div>
 </div>
@@ -82,44 +90,44 @@
     const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Como você é o coordenador Jefferson, vamos simular seu acesso às atribuições
-    const PROFESSOR_TESTE = "IVALDEMIRA"; 
+    // Simulando acesso para teste (Ex: Professor Elenilson ou Ivaldemira)
+    const PROFESSOR_CONTEXTO = "IVALDEMIRA"; 
 
-    async function carregarAtribuicoes() {
-        const { data } = await _supabase.from('atribuicoes').select('*').eq('PROFESSOR', PROFESSOR_TESTE);
-        const select = document.getElementById('selectAtribuicao');
-        data.forEach(atrib => {
+    async function abrirDiario() {
+        document.getElementById('areaDiario').style.display = 'block';
+        // Busca na tabela 'atribuicoes' que você já tem no banco
+        const { data } = await _supabase.from('atribuicoes').select('*').eq('PROFESSOR', PROFESSOR_CONTEXTO);
+        
+        const sel = document.getElementById('selectAtribuicao');
+        sel.innerHTML = '<option value="">-- Escolha a Turma --</option>';
+        data.forEach(at => {
             let opt = document.createElement('option');
-            opt.value = atrib.TURMA;
-            opt.text = `${atrib.DISCIPLINA} - ${atrib.TURMA}`;
-            opt.dataset.disciplina = atrib.DISCIPLINA;
-            select.appendChild(opt);
+            opt.value = at.TURMA;
+            opt.text = `${at.DISCIPLINA} - ${at.TURMA}`;
+            opt.dataset.disciplina = at.DISCIPLINA;
+            sel.appendChild(opt);
         });
     }
 
-    function mostrarNotas() {
-        document.getElementById('secaoNotas').style.display = 'block';
-        carregarAtribuicoes();
-    }
-
-    async function carregarAlunos() {
-        const select = document.getElementById('selectAtribuicao');
-        const { data: alunos } = await _supabase.from('alunos').select('*').eq('TURMA', select.value).order('NOME');
+    async function puxarAlunosDoBanco() {
+        const turma = document.getElementById('selectAtribuicao').value;
+        // Puxa os alunos que você importou via CSV
+        const { data: alunos } = await _supabase.from('alunos').select('*').eq('TURMA', turma).order('NOME');
         
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = '';
 
-        alunos.forEach(aluno => {
-            const obs = aluno.OBSERVACAO ? `<span class="alerta-inclusao">⚠️ ${aluno.OBSERVACAO}</span>` : '';
+        alunos.forEach(al => {
+            const obs = al.OBSERVACAO ? `<span class="alerta-inclusao">⚠️ ${al.OBSERVACAO}</span>` : '';
             corpo.innerHTML += `
-                <tr data-aluno="${aluno.NOME}">
-                    <td align="left"><strong>${aluno.NOME}</strong>${obs}</td>
-                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calcular(this)"></td>
-                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calcular(this)"></td>
-                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calcular(this)"></td>
-                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calcular(this)"></td>
-                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calcular(this)"></td>
-                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calcular(this)"></td>
+                <tr data-aluno="${al.NOME}">
+                    <td align="left"><strong>${al.NOME}</strong>${obs}</td>
+                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calcularNotas(this)"></td>
+                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calcularNotas(this)"></td>
+                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calcularNotas(this)"></td>
+                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calcularNotas(this)"></td>
+                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calcularNotas(this)"></td>
+                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calcularNotas(this)"></td>
                     <td><input type="number" class="aulas" value="40"></td>
                     <td><input type="number" class="faltas" value="0"></td>
                     <td class="media-res">-</td>
@@ -127,33 +135,34 @@
         });
     }
 
-    function calcular(input) {
-        const row = input.closest('tr');
-        const getVal = (cls) => parseFloat(row.querySelector(cls).value) || 0;
+    function calcularNotas(input) {
+        const r = input.closest('tr');
+        const val = (c) => parseFloat(r.querySelector(c).value) || 0;
         
-        const calcBloco = (p2, p3, rec) => {
-            let m_orig = (p2 * 2 + p3 * 3) / 5;
-            let m_subP2 = (Math.max(p2, rec) * 2 + p3 * 3) / 5;
-            let m_subP3 = (p2 * 2 + Math.max(p3, rec) * 3) / 5;
-            return Math.max(m_orig, m_subP2, m_subP3);
+        const lógicaBenefício = (p2, p3, rec) => {
+            let original = (p2 * 2 + p3 * 3) / 5;
+            let trocaP2 = (Math.max(p2, rec) * 2 + p3 * 3) / 5;
+            let trocaP3 = (p2 * 2 + Math.max(p3, rec) * 3) / 5;
+            return Math.max(original, trocaP2, trocaP3);
         };
 
-        const final = (calcBloco(getVal('.v1'), getVal('.v2'), getVal('.r1')) + 
-                      calcBloco(getVal('.v3'), getVal('.v4'), getVal('.r2'))) / 2;
+        const mediaFinal = (lógicaBenefício(val('.v1'), val('.v2'), val('.r1')) + 
+                           lógicaBenefício(val('.v3'), val('.v4'), val('.r2'))) / 2;
 
-        const res = row.querySelector('.media-res');
-        res.innerText = final.toFixed(1);
-        res.className = final >= 5 ? 'media-res media-azul' : 'media-res media-vermelha';
+        const cell = r.querySelector('.media-res');
+        cell.innerText = mediaFinal.toFixed(1);
+        cell.className = 'media-res ' + (mediaFinal >= 5 ? 'media-azul' : 'media-vermelha');
     }
 
-    async function salvarNoSupabase() {
+    async function gravarNoSupabase() {
         const sel = document.getElementById('selectAtribuicao');
         const rows = document.querySelectorAll('#corpoTabela tr');
+        
         const payload = Array.from(rows).map(r => ({
             aluno_nome: r.dataset.aluno,
             turma: sel.value,
             disciplina: sel.options[sel.selectedIndex].dataset.disciplina,
-            professor: PROFESSOR_TESTE,
+            professor: PROFESSOR_CONTEXTO,
             "1AVA": parseFloat(r.querySelector('.v1').value),
             "2AVA": parseFloat(r.querySelector('.v2').value),
             "1REC": parseFloat(r.querySelector('.r1').value),
@@ -164,11 +173,10 @@
             faltas: parseInt(r.querySelector('.faltas').value)
         }));
 
-        const { error } = await _supabase.from('notas').upsert(payload);
-        if (error) alert("Erro: " + error.message);
-        else alert("Diário de " + sel.options[sel.selectedIndex].text + " salvo com sucesso!");
+        const { error } = await _supabase.from('notas').upsert(payload, { onConflict: 'aluno_nome, disciplina, turma' });
+        if (error) alert("Erro ao salvar dados: " + error.message);
+        else alert("Diário atualizado com sucesso!");
     }
 </script>
-
 </body>
 </html>
