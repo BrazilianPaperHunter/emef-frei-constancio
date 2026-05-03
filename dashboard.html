@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Administrativo - EMEF Frei Constâncio</title>
+    <!-- Importação correta do Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Estilos mantidos conforme sua configuração original */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Open Sans', sans-serif; background-color: #f4f7f6; color: #333; font-size: 14px; }
         header { background-color: #004a99; color: white; padding: 0.8rem; text-align: center; }
@@ -22,7 +22,6 @@
         .secao-diario h3 { font-size: 1rem; margin-bottom: 12px; }
         .info-aula { background: #e8f4fd; border-left: 3px solid #004a99; padding: 10px 12px; margin-bottom: 12px; border-radius: 4px; font-size: 0.85rem; }
         .info-aula h4 { margin: 0 0 6px 0; color: #004a99; font-size: 0.9rem; }
-        .info-aula p { margin: 3px 0; }
         .select-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
         .select-group { display: flex; flex-direction: column; gap: 3px; }
         .select-group label { font-weight: bold; font-size: 0.8rem; }
@@ -30,17 +29,16 @@
         table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 10px; min-width: 800px; }
         th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
         th { background-color: #004a99; color: white; font-size: 0.75rem; }
-        input[type="number"] { width: 45px; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 3px; font-size: 0.8rem; }
+        input[type="number"] { width: 50px; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 3px; font-size: 0.8rem; }
         .media-res { font-weight: bold; font-size: 0.85rem; }
         .media-azul { color: #004a99; }
         .media-vermelha { color: #d9534f; }
-        .situacao-aprovado { background-color: #d4edda; color: #155724; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; display: inline-block; }
-        .situacao-reprovado { background-color: #f8d7da; color: #721c24; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; display: inline-block; }
-        .situacao-falta { background-color: #fff3cd; color: #856404; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; display: inline-block; }
-        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 10px 25px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; margin-top: 15px; float: right; }
+        .situacao-aprovado { background-color: #d4edda; color: #155724; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; }
+        .situacao-reprovado { background-color: #f8d7da; color: #721c24; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; }
+        .situacao-falta { background-color: #fff3cd; color: #856404; font-weight: bold; padding: 3px 8px; border-radius: 3px; font-size: 0.75rem; }
+        .btn-salvar { background-color: #28a745; color: white; border: none; padding: 10px 25px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; margin-top: 15px; float: right; transition: 0.3s; }
         .btn-salvar:hover { background-color: #218838; }
         .btn-lancar { background: #004a99; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-        .btn-lancar:hover { background: #003366; }
     </style>
 </head>
 <body>
@@ -89,7 +87,7 @@
             </div>
             <div class="select-group">
                 <label>&nbsp;</label>
-                <button class="btn-lancar" onclick="abrirDiario()">🔄 Atualizar</button>
+                <button class="btn-lancar" onclick="abrirDiario()">🔄 Atualizar Listas</button>
             </div>
         </div>
 
@@ -111,264 +109,162 @@
             <tbody id="corpoTabela"></tbody>
         </table>
         
-        <!-- O nome do botão foi atualizado aqui -->
-        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar!</button>
+        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar Notas!</button>
         <div style="clear: both;"></div>
     </div>
 </div>
 
 <script>
+    // Substitua pela sua ANON KEY real que começa com eyJ...
     const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
+    const SUPABASE_KEY = 'SUA_CHAVE_ANON_AQUI'; 
+    
     let _supabase;
     let PROFESSOR_NOME = ""; 
-    let USUARIO_ATUAL = null;
     let ATRIBUICOES_CACHE = [];
     let TOTAL_AULAS = 40;
 
     async function inicializarApp() {
-        try {
-            if (typeof supabase === 'undefined') {
-                document.getElementById('nomeBemVindo').innerText = "Erro: Biblioteca não carregada";
-                return;
-            }
-            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            await verificarSessao();
-        } catch (err) {
-            console.error("Erro na inicialização:", err);
-            document.getElementById('nomeBemVindo').innerText = "Erro ao conectar ao banco";
+        if (typeof supabase === 'undefined') {
+            document.getElementById('nomeBemVindo').innerText = "Erro: Supabase não carregado";
+            return;
         }
+        _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        await verificarSessao();
     }
 
     async function verificarSessao() {
-        try {
-            const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-            if (sessionError || !session) {
-                window.location.href = "index.html";
-                return;
-            }
-            USUARIO_ATUAL = session.user;
-            const { data: profile, error: errProfile } = await _supabase
-                .from('profiles')
-                .select('NOME, CARGO, MATRICULA')
-                .eq('id', USUARIO_ATUAL.id)
-                .single();
-            if (profile) {
-                PROFESSOR_NOME = profile.NOME;
-                document.getElementById('nomeBemVindo').innerText = "Seja Bem-vindo(a), Prof.(a) " + profile.NOME;
-            } else {
-                document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
-            }
-        } catch (err) {
-            document.getElementById('nomeBemVindo').innerText = "Erro no sistema";
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) {
+            console.log("Sem sessão ativa");
+            return;
+        }
+        
+        const { data: profile } = await _supabase
+            .from('profiles')
+            .select('NOME')
+            .eq('id', session.user.id)
+            .single();
+
+        if (profile) {
+            PROFESSOR_NOME = profile.NOME;
+            document.getElementById('nomeBemVindo').innerText = `Seja Bem-vindo(a), Prof.(a) ${profile.NOME}`;
         }
     }
 
     async function abrirDiario() {
-        if (!PROFESSOR_NOME) {
-            alert("Aguarde o carregamento do perfil.");
-            return;
-        }
+        if (!PROFESSOR_NOME) { alert("Perfil não carregado!"); return; }
         
         document.getElementById('areaDiario').style.display = 'block';
+        const { data, error } = await _supabase.from('atribuicoes').select('*').eq('NOME', PROFESSOR_NOME);
 
-        const { data, error } = await _supabase
-            .from('atribuicoes')
-            .select('*')
-            .eq('NOME', PROFESSOR_NOME);
-
-        if (error) {
-            alert("Erro ao carregar turmas: " + error.message);
-            return;
-        }
-
-        if (!data || data.length === 0) {
-            alert("Nenhuma atribuição encontrada para " + PROFESSOR_NOME);
-            return;
-        }
+        if (error) { alert("Erro: " + error.message); return; }
 
         ATRIBUICOES_CACHE = data;
-        
         const disciplinas = [...new Set(data.map(at => at.DISCIPLINA))].sort();
-        
         const selDisc = document.getElementById('selectDisciplina');
-        selDisc.innerHTML = '<option value="">-- Selecione --</option>';
-        
-        disciplinas.forEach(disc => {
-            let opt = document.createElement('option');
-            opt.value = disc;
-            opt.text = disc;
-            selDisc.appendChild(opt);
-        });
-
-        const selTurma = document.getElementById('selectTurma');
-        selTurma.innerHTML = '<option value="">-- Selecione --</option>';
-        document.getElementById('corpoTabela').innerHTML = '';
-        document.getElementById('infoAula').style.display = 'none';
+        selDisc.innerHTML = '<option value="">-- Selecione --</option>' + 
+            disciplinas.map(d => `<option value="${d}">${d}</option>`).join('');
     }
 
     function filtrarTurmas() {
-        const disciplinaSelecionada = document.getElementById('selectDisciplina').value;
+        const disc = document.getElementById('selectDisciplina').value;
         const selTurma = document.getElementById('selectTurma');
-        
         selTurma.innerHTML = '<option value="">-- Selecione --</option>';
-        document.getElementById('corpoTabela').innerHTML = '';
-        document.getElementById('infoAula').style.display = 'none';
         
-        if (!disciplinaSelecionada) return;
-        
-        const turmasFiltradas = [...new Set(ATRIBUICOES_CACHE
-            .filter(at => at.DISCIPLINA === disciplinaSelecionada)
-            .map(at => at.TURMA))].sort();
-        
-        turmasFiltradas.forEach(turma => {
-            let opt = document.createElement('option');
-            opt.value = turma;
-            opt.text = turma;
-            selTurma.appendChild(opt);
-        });
-    }
+        if (!disc) return;
 
-    function atualizarTodasAulas() {
-        TOTAL_AULAS = parseInt(document.getElementById('totalAulas').value) || 40;
-        document.querySelectorAll('#corpoTabela tr').forEach(row => {
-            const input = row.querySelector('input');
-            if (input) calc(input);
-        });
+        const turmas = [...new Set(ATRIBUICOES_CACHE.filter(at => at.DISCIPLINA === disc).map(at => at.TURMA))].sort();
+        selTurma.innerHTML += turmas.map(t => `<option value="${t}">${t}</option>`).join('');
     }
 
     async function carregarAlunosDoBanco() {
-        const disciplina = document.getElementById('selectDisciplina').value;
         const turma = document.getElementById('selectTurma').value;
-        
-        if (!turma) {
-            document.getElementById('corpoTabela').innerHTML = '';
-            document.getElementById('infoAula').style.display = 'none';
-            return;
-        }
+        const disc = document.getElementById('selectDisciplina').value;
+        if (!turma) return;
 
         document.getElementById('infoProfessor').innerText = PROFESSOR_NOME;
-        document.getElementById('infoDisciplina').innerText = disciplina;
+        document.getElementById('infoDisciplina').innerText = disc;
         document.getElementById('infoTurma').innerText = turma;
         document.getElementById('infoAula').style.display = 'block';
 
-        const { data: alunos, error } = await _supabase
-            .from('alunos')
-            .select('*')
-            .eq('TURMA', turma)
-            .order('NOME');
+        const { data: alunos } = await _supabase.from('alunos').select('NOME').eq('TURMA', turma).order('NOME');
         
-        if (error) {
-            alert("Erro ao buscar lista de alunos.");
-            return;
-        }
-
         const corpo = document.getElementById('corpoTabela');
-        corpo.innerHTML = '';
-        
-        if (!alunos || alunos.length === 0) {
-            corpo.innerHTML = '<tr><td colspan="10">Nenhum aluno encontrado para esta turma.</td></tr>';
-            return;
-        }
-        
-        alunos.forEach(al => {
-            corpo.innerHTML += `
-                <tr data-aluno="${al.NOME}">
-                    <td align="left"><strong>${al.NOME}</strong></td>
-                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="faltas" value="0" oninput="calc(this)"></td>
-                    <td class="media-res">-</td>
-                    <td class="situacao-col">-</td>
-                </tr>`;
-        });
+        corpo.innerHTML = alunos.map(al => `
+            <tr data-aluno="${al.NOME}">
+                <td align="left"><strong>${al.NOME}</strong></td>
+                <td><input type="number" class="v1" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="v2" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="r1" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
+                <td><input type="number" class="faltas" value="0" oninput="calc(this)"></td>
+                <td class="media-res">0.0</td>
+                <td class="situacao-col">-</td>
+            </tr>
+        `).join('');
     }
 
     function calc(el) {
         const row = el.closest('tr');
-        const v = (c) => parseFloat(row.querySelector(c).value) || 0;
+        const getV = (cls) => parseFloat(row.querySelector(cls).value) || 0;
         
-        const calcularBloco = (p2, p3, rec) => {
-            let mediaNormal = (p2 * 2 + p3 * 3) / 5;
-            let mediaRecP2 = (Math.max(p2, rec) * 2 + p3 * 3) / 5;
-            let mediaRecP3 = (p2 * 2 + Math.max(p3, rec) * 3) / 5;
-            return Math.max(mediaNormal, mediaRecP2, mediaRecP3);
+        const calcMedia = (p2, p3, rec) => {
+            let base = (p2 * 2 + p3 * 3) / 5;
+            let rP2 = (Math.max(p2, rec) * 2 + p3 * 3) / 5;
+            let rP3 = (p2 * 2 + Math.max(p3, rec) * 3) / 5;
+            return Math.max(base, rP2, rP3);
         };
 
-        const m1 = calcularBloco(v('.v1'), v('.v2'), v('.r1'));
-        const m2 = calcularBloco(v('.v3'), v('.v4'), v('.r2'));
+        const m1 = calcMedia(getV('.v1'), getV('.v2'), getV('.r1'));
+        const m2 = calcMedia(getV('.v3'), getV('.v4'), getV('.r2'));
         const final = (m1 + m2) / 2;
 
-        const faltas = v('.faltas');
-        const frequencia = TOTAL_AULAS > 0 ? ((TOTAL_AULAS - faltas) / TOTAL_AULAS) * 100 : 100;
+        const faltas = getV('.faltas');
+        const freq = TOTAL_AULAS > 0 ? ((TOTAL_AULAS - faltas) / TOTAL_AULAS) * 100 : 100;
 
         const res = row.querySelector('.media-res');
         res.innerText = final.toFixed(1);
         res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
 
-        const sitCell = row.querySelector('.situacao-col');
-        let situacao = '';
-        let classe = '';
+        let sit = final >= 5 ? 'APROVADO' : 'REPROVADO';
+        let cls = final >= 5 ? 'situacao-aprovado' : 'situacao-reprovado';
+        if (freq < 75) { sit = 'REPROVADO POR FALTA'; cls = 'situacao-falta'; }
 
-        if (frequencia < 75) {
-            situacao = 'REPROVADO POR FALTA';
-            classe = 'situacao-falta';
-        } else if (final >= 5) {
-            situacao = 'APROVADO';
-            classe = 'situacao-aprovado';
-        } else {
-            situacao = 'REPROVADO';
-            classe = 'situacao-reprovado';
-        }
+        row.querySelector('.situacao-col').innerHTML = `<span class="${cls}">${sit}</span>`;
+    }
 
-        sitCell.innerHTML = '<span class="' + classe + '">' + situacao + '</span>';
+    function atualizarTodasAulas() {
+        TOTAL_AULAS = parseInt(document.getElementById('totalAulas').value) || 40;
+        document.querySelectorAll('#corpoTabela input.faltas').forEach(input => calc(input));
     }
 
     async function salvarNoSupabase() {
-        const selDisc = document.getElementById('selectDisciplina');
-        const selTurma = document.getElementById('selectTurma');
-        
-        if (!selDisc.value || !selTurma.value) {
-            alert("Escolha a disciplina e a turma antes de salvar!");
-            return;
-        }
+        const turma = document.getElementById('selectTurma').value;
+        const disc = document.getElementById('selectDisciplina').value;
+        if (!turma || !disc) { alert("Selecione Turma/Disciplina"); return; }
 
-        const rows = document.querySelectorAll('#corpoTabela tr');
-        const dados = Array.from(rows).map(r => {
-            const v = (c) => parseFloat(r.querySelector(c).value) || 0;
+        const dados = Array.from(document.querySelectorAll('#corpoTabela tr')).map(r => {
+            const getV = (cls) => parseFloat(r.querySelector(cls).value) || 0;
             return {
                 aluno_nome: r.dataset.aluno,
-                turma: selTurma.value,
-                disciplina: selDisc.value,
+                turma: turma,
+                disciplina: disc,
                 professor: PROFESSOR_NOME,
-                "1AVA": v('.v1'),
-                "2AVA": v('.v2'),
-                "1REC": v('.r1'),
-                "3AVA": v('.v3'),
-                "4AVA": v('.v4'),
-                "2REC": v('.r2'),
-                faltas: parseInt(r.querySelector('.faltas').value) || 0,
-                media_final: parseFloat(r.querySelector('.media-res').innerText) || 0
+                v1: getV('.v1'), v2: getV('.v2'), r1: getV('.r1'),
+                v3: getV('.v3'), v4: getV('.v4'), r2: getV('.r2'),
+                faltas: getV('.faltas'),
+                media_final: parseFloat(r.querySelector('.media-res').innerText)
             };
         });
 
-        const { error } = await _supabase
-            .from('notas')
-            .upsert(dados, { onConflict: 'aluno_nome, turma, disciplina' });
-
-        if (error) {
-            alert("Erro ao salvar dados: " + error.message);
-        } else {
-            alert(`Notas de ${selTurma.value} salvas com sucesso no banco!`);
-        }
+        const { error } = await _supabase.from('notas').upsert(dados, { onConflict: 'aluno_nome,turma,disciplina' });
+        error ? alert("Erro ao salvar: " + error.message) : alert("Notas salvas com sucesso!");
     }
 
     window.onload = inicializarApp;
 </script>
-
 </body>
 </html>
