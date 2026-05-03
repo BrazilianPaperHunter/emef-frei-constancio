@@ -52,6 +52,15 @@
             .single();
 
         if (profileError || !profile) {
-            alert("Login realizado! Bem-vindo(a),");
+            alert("Login realizado! Bem-vindo.");
         } else {
-            const cargoFormatado = profile.CARGO ? profile.CARGO.toLower
+            const cargoFormatado = profile.CARGO ? profile.CARGO.toLowerCase() : 'usuário';
+            alert("Login realizado! Bem-vindo, " + cargoFormatado + ".");
+        }
+
+        window.location.href = 'dashboard.html?v=2';
+    }
+</script>
+
+</body>
+</html>
