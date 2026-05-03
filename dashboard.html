@@ -6,6 +6,7 @@
     <title>Painel Administrativo - EMEF Frei Constâncio</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* Estilos mantidos conforme sua configuração original */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Open Sans', sans-serif; background-color: #f4f7f6; color: #333; font-size: 14px; }
         header { background-color: #004a99; color: white; padding: 0.8rem; text-align: center; }
@@ -110,8 +111,8 @@
             <tbody id="corpoTabela"></tbody>
         </table>
         
-        <!-- Nome alterado conforme solicitado -->
-        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar</button>
+        <!-- O nome do botão foi atualizado aqui -->
+        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar!</button>
         <div style="clear: both;"></div>
     </div>
 </div>
@@ -327,7 +328,6 @@
         sitCell.innerHTML = '<span class="' + classe + '">' + situacao + '</span>';
     }
 
-    // Função ajustada para mapear os campos conforme image_edc1a0.png
     async function salvarNoSupabase() {
         const selDisc = document.getElementById('selectDisciplina');
         const selTurma = document.getElementById('selectTurma');
@@ -356,7 +356,6 @@
             };
         });
 
-        // O upsert garante que ele atualize se já existir (baseado no índice único)
         const { error } = await _supabase
             .from('notas')
             .upsert(dados, { onConflict: 'aluno_nome, turma, disciplina' });
