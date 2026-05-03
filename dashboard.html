@@ -10,7 +10,7 @@
         .container { padding: 20px; max-width: 1200px; margin: auto; }
         .welcome-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 25px; }
         
-        /* Grid de Menus - Agora com 3 colunas para ocupar bem o espaço */
+        /* Grid de Menus Ajustado para 3 colunas */
         .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .menu-item { background: #e9ecef; padding: 20px; border-radius: 8px; text-align: center; cursor: pointer; border: 1px solid #dee2e6; font-weight: bold; transition: 0.3s; text-decoration: none; color: #333; }
         .menu-item:hover { background: #dee2e6; transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
@@ -37,12 +37,12 @@
 
 <div class="container">
     <div class="welcome-card">
-        <h2>Bem-vindo, Coordenador Jefferson Bezerra</h2>
-        <p>Gestão Administrativa - EMEF Frei Constâncio</p>
-        <p><strong>Status:</strong> Presidente do Conselho Escolar (2026-2029)</p>
+        <h2>Bem-vindo, Jefferson Bezerra Bezerra</h2>
+        <p>Gestão Pedagógica - EMEF Frei Constâncio</p>
+        <p><strong>Cargo:</strong> Apoio Pedagógico</p>
     </div>
 
-    <!-- Menu atualizado: Cadastro de Alunos Removido -->
+    <!-- Menu atualizado: Apenas 3 itens principais -->
     <div class="menu-grid">
         <div class="menu-item" onclick="abrirDiario()">📝 Lançar Notas (Professor)</div>
         <div class="menu-item">📋 Frequência Escolar</div>
@@ -86,6 +86,7 @@
     const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Professor para carregar as turmas (exemplo)
     const PROFESSOR_NOME = "IVALDEMIRA"; 
 
     async function abrirDiario() {
