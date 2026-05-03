@@ -34,6 +34,8 @@
         .situacao-falta { background-color: #fff3cd; color: #856404; font-weight: bold; padding: 5px 10px; border-radius: 4px; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; }
         .btn-salvar:hover { background-color: #218838; }
+        .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 0.8rem; display: none; }
+        .debug-box div { margin: 3px 0; }
     </style>
 </head>
 <body>
@@ -63,6 +65,8 @@
             <p><strong>Disciplina:</strong> <span id="infoDisciplina">-</span></p>
             <p><strong>Turma:</strong> <span id="infoTurma">-</span></p>
         </div>
+
+        <div id="debugDiario" class="debug-box"></div>
         
         <div class="select-row">
             <div class="select-group">
@@ -111,6 +115,13 @@
     let USUARIO_ATUAL = null;
     let ATRIBUICOES_CACHE = [];
 
+    function logDebug(msg) {
+        console.log(msg);
+        const box = document.getElementById('debugDiario');
+        box.style.display = 'block';
+        box.innerHTML += '<div>' + msg + '</div>';
+    }
+
     async function inicializarApp() {
         try {
             if (typeof supabase === 'undefined') {
@@ -155,25 +166,64 @@
             alert("Aguarde o carregamento do perfil.");
             return;
         }
+        
         document.getElementById('areaDiario').style.display = 'block';
-        const { data, error } = await _supabase
+        document.getElementById('debugDiario').innerHTML = '';
+        document.getElementById('debugDiario').style.display = 'none';
+        
+        logDebug("🔍 Buscando atribuições para: " + PROFESSOR_NOME);
+
+        // Tenta buscar por NOME (coluna que vimos na tabela atribuicoes)
+        let { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
             .eq('NOME', PROFESSOR_NOME);
+
+        // Se não encontrar, tenta por PROFESSOR (outra possibilidade)
+        if ((!data || data.length === 0) && !error) {
+            logDebug("⚠️ Nenhuma atribuição encontrada por NOME. Tentando PROFESSOR...");
+            const result2 = await _supabase
+                .from('atribuicoes')
+                .select('*')
+                .eq('PROFESSOR', PROFESSOR_NOME);
+            data = result2.data;
+            error = result2.error;
+        }
+
         if (error) {
+            logDebug("❌ Erro: " + error.message);
             alert("Erro ao carregar turmas: " + error.message);
             return;
         }
+
+        logDebug("📋 Atribuições encontradas: " + (data ? data.length : 0));
+        
+        if (!data || data.length === 0) {
+            logDebug("❌ Nenhuma atribuição encontrada para: " + PROFESSOR_NOME);
+            logDebug("💡 Verifique se o nome na tabela 'atribuicoes' está igual ao perfil.");
+            return;
+        }
+
+        // Log das atribuições para debug
+        data.forEach((at, i) => {
+            logDebug("   → " + (i+1) + ". " + at.DISCIPLINA + " - " + at.TURMA);
+        });
+
         ATRIBUICOES_CACHE = data;
+        
         const disciplinas = [...new Set(data.map(at => at.DISCIPLINA))].sort();
+        logDebug("📚 Disciplinas: " + disciplinas.join(', '));
+        
         const selDisc = document.getElementById('selectDisciplina');
         selDisc.innerHTML = '<option value="">-- Selecione --</option>';
+        
         disciplinas.forEach(disc => {
             let opt = document.createElement('option');
             opt.value = disc;
             opt.text = disc;
             selDisc.appendChild(opt);
         });
+
         const selTurma = document.getElementById('selectTurma');
         selTurma.innerHTML = '<option value="">-- Selecione --</option>';
         document.getElementById('corpoTabela').innerHTML = '';
@@ -183,13 +233,17 @@
     function filtrarTurmas() {
         const disciplinaSelecionada = document.getElementById('selectDisciplina').value;
         const selTurma = document.getElementById('selectTurma');
+        
         selTurma.innerHTML = '<option value="">-- Selecione --</option>';
         document.getElementById('corpoTabela').innerHTML = '';
         document.getElementById('infoAula').style.display = 'none';
+        
         if (!disciplinaSelecionada) return;
+        
         const turmasFiltradas = [...new Set(ATRIBUICOES_CACHE
             .filter(at => at.DISCIPLINA === disciplinaSelecionada)
             .map(at => at.TURMA))].sort();
+        
         turmasFiltradas.forEach(turma => {
             let opt = document.createElement('option');
             opt.value = turma;
@@ -208,7 +262,6 @@
             return;
         }
 
-        // Atualiza info da aula
         document.getElementById('infoProfessor').innerText = PROFESSOR_NOME;
         document.getElementById('infoDisciplina').innerText = disciplina;
         document.getElementById('infoTurma').innerText = turma;
@@ -219,12 +272,20 @@
             .select('*')
             .eq('TURMA', turma)
             .order('NOME');
+        
         if (error) {
             alert("Erro ao buscar lista de alunos.");
             return;
         }
+
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = '';
+        
+        if (!alunos || alunos.length === 0) {
+            corpo.innerHTML = '<tr><td colspan="11">Nenhum aluno encontrado para esta turma.</td></tr>';
+            return;
+        }
+        
         alunos.forEach(al => {
             corpo.innerHTML += `
                 <tr data-aluno="${al.NOME}">
@@ -266,7 +327,6 @@
         res.innerText = final.toFixed(1);
         res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
 
-        // Calcula situação
         const sitCell = row.querySelector('.situacao-col');
         let situacao = '';
         let classe = '';
