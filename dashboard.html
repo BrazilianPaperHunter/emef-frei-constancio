@@ -142,8 +142,6 @@
             logDebug("👤 Usuário logado: " + USUARIO_ATUAL.id);
             logDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
 
-            // Busca perfil pelo ID
-            logDebug("🔎 Buscando perfil...");
             const { data: profile, error: errProfile } = await _supabase
                 .from('profiles')
                 .select('NOME, CARGO, MATRICULA')
@@ -187,7 +185,7 @@
         const { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
-            .eq('PROFESSOR', PROFESSOR_NOME);
+            .eq('NOME', PROFESSOR_NOME);  // <-- CORRIGIDO: PROFESSOR → NOME
 
         if (error) {
             alert("Erro ao carregar turmas: " + error.message);
