@@ -14,19 +14,26 @@
         .menu-item { background: #e9ecef; padding: 20px; border-radius: 8px; text-align: center; cursor: pointer; border: 1px solid #dee2e6; font-weight: bold; transition: 0.3s; color: #333; }
         .menu-item:hover { background: #dee2e6; transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .secao-diario { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 15px; min-width: 800px; }
+        .info-aula { background: #e8f4fd; border-left: 4px solid #004a99; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .info-aula h4 { margin: 0 0 10px 0; color: #004a99; }
+        .info-aula p { margin: 5px 0; font-size: 0.95rem; }
+        .info-aula strong { color: #333; }
+        .select-row { display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
+        .select-group { display: flex; flex-direction: column; gap: 5px; }
+        .select-group label { font-weight: bold; }
+        .select-group select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; min-width: 200px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 15px; min-width: 900px; }
         th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
         th { background-color: #004a99; color: white; }
         input[type="number"] { width: 50px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 3px; }
         .media-res { font-weight: bold; }
         .media-azul { color: #004a99; }
         .media-vermelha { color: #d9534f; }
+        .situacao-aprovado { background-color: #d4edda; color: #155724; font-weight: bold; padding: 5px 10px; border-radius: 4px; }
+        .situacao-reprovado { background-color: #f8d7da; color: #721c24; font-weight: bold; padding: 5px 10px; border-radius: 4px; }
+        .situacao-falta { background-color: #fff3cd; color: #856404; font-weight: bold; padding: 5px 10px; border-radius: 4px; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; }
         .btn-salvar:hover { background-color: #218838; }
-        .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: monospace; font-size: 0.85rem; display: none; }
-        .debug-box h4 { margin: 0 0 10px 0; color: #856404; }
-        .debug-box div { margin: 5px 0; padding: 3px 0; border-bottom: 1px solid #ffeaa7; }
-        .erro-rls { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
@@ -40,30 +47,36 @@
         <h2 id="nomeBemVindo">Carregando...</h2>
         <p>Gestão Pedagógica - EMEF Frei Constâncio</p>
         <p><strong>Cargo:</strong> <span id="cargoUsuario">-</span></p>
-        <div id="debugBox" class="debug-box">
-            <h4>🔍 Diagnóstico</h4>
-            <div id="debugContent"></div>
-        </div>
-        <div id="erroRLS" class="erro-rls">
-            <strong>⚠️ Erro de Permissão (RLS)</strong><br>
-            O Supabase está bloqueando o acesso ao perfil. Execute no SQL Editor:<br>
-            <code>CREATE POLICY "Usuários leem próprio perfil" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);</code>
-        </div>
     </div>
 
     <div class="menu-grid">
         <div class="menu-item" onclick="abrirDiario()">📝 Lançar Notas (Professor)</div>
-        <div class="menu-item">📋 Frequência Escolar</div>
         <div class="menu-item">📊 Relatórios Estatísticos</div>
     </div>
 
     <div id="areaDiario" class="secao-diario">
         <h3>Diário de Classe Eletrônico</h3>
-        <div style="margin-bottom: 15px;">
-            <label><strong>Selecione a Turma/Disciplina:</strong></label>
-            <select id="selectAtribuicao" onchange="carregarAlunosDoBanco()" style="padding: 8px; border-radius: 4px;">
-                <option value="">-- Selecione --</option>
-            </select>
+        
+        <div class="info-aula" id="infoAula" style="display:none;">
+            <h4>📋 Informações da Aula</h4>
+            <p><strong>Professor:</strong> <span id="infoProfessor">-</span></p>
+            <p><strong>Disciplina:</strong> <span id="infoDisciplina">-</span></p>
+            <p><strong>Turma:</strong> <span id="infoTurma">-</span></p>
+        </div>
+        
+        <div class="select-row">
+            <div class="select-group">
+                <label for="selectDisciplina">Disciplina:</label>
+                <select id="selectDisciplina" onchange="filtrarTurmas()">
+                    <option value="">-- Selecione --</option>
+                </select>
+            </div>
+            <div class="select-group">
+                <label for="selectTurma">Turma:</label>
+                <select id="selectTurma" onchange="carregarAlunosDoBanco()">
+                    <option value="">-- Selecione --</option>
+                </select>
+            </div>
         </div>
 
         <table id="tabelaLancamento">
@@ -79,6 +92,7 @@
                     <th>Aulas</th>
                     <th>Faltas</th>
                     <th>Média Final</th>
+                    <th>Situação</th>
                 </tr>
             </thead>
             <tbody id="corpoTabela"></tbody>
@@ -95,14 +109,7 @@
     let _supabase;
     let PROFESSOR_NOME = ""; 
     let USUARIO_ATUAL = null;
-
-    function logDebug(msg) {
-        console.log(msg);
-        const box = document.getElementById('debugBox');
-        const content = document.getElementById('debugContent');
-        box.style.display = 'block';
-        content.innerHTML += '<div>' + msg + '</div>';
-    }
+    let ATRIBUICOES_CACHE = [];
 
     async function inicializarApp() {
         try {
@@ -110,9 +117,7 @@
                 document.getElementById('nomeBemVindo').innerText = "Erro: Biblioteca não carregada";
                 return;
             }
-            
             _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            logDebug("✅ Cliente Supabase criado");
             await verificarSessao();
         } catch (err) {
             console.error("Erro na inicialização:", err);
@@ -122,55 +127,26 @@
 
     async function verificarSessao() {
         try {
-            logDebug("🔍 Verificando sessão...");
-            
             const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-            
-            if (sessionError) {
-                logDebug("❌ Erro na sessão: " + sessionError.message);
+            if (sessionError || !session) {
                 window.location.href = "login.html";
                 return;
             }
-
-            if (!session) {
-                logDebug("⚠️ Sem sessão ativa - redirecionando...");
-                window.location.href = "login.html";
-                return;
-            }
-
             USUARIO_ATUAL = session.user;
-            logDebug("👤 Usuário logado: " + USUARIO_ATUAL.id);
-            logDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
-
             const { data: profile, error: errProfile } = await _supabase
                 .from('profiles')
                 .select('NOME, CARGO, MATRICULA')
                 .eq('id', USUARIO_ATUAL.id)
                 .single();
-
-            if (errProfile) {
-                logDebug("❌ Erro na query: " + errProfile.message);
-                if (errProfile.message.includes('row-level security') || errProfile.code === '42501') {
-                    document.getElementById('erroRLS').style.display = 'block';
-                }
-                document.getElementById('nomeBemVindo').innerText = "Erro de permissão";
-                return;
-            }
-
             if (profile) {
                 PROFESSOR_NOME = profile.NOME;
                 document.getElementById('nomeBemVindo').innerText = "Bem-vindo, " + profile.NOME;
                 document.getElementById('cargoUsuario').innerText = (profile.CARGO || "Não definido").toUpperCase();
-                logDebug("🎉 Perfil carregado: " + profile.NOME + " | Cargo: " + profile.CARGO);
             } else {
-                logDebug("❌ Perfil não encontrado para ID: " + USUARIO_ATUAL.id);
                 document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
             }
-
         } catch (err) {
-            console.error("Erro geral:", err);
             document.getElementById('nomeBemVindo').innerText = "Erro no sistema";
-            logDebug("💥 Erro crítico: " + err.message);
         }
     }
 
@@ -179,47 +155,76 @@
             alert("Aguarde o carregamento do perfil.");
             return;
         }
-        
         document.getElementById('areaDiario').style.display = 'block';
-        
         const { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
-            .eq('NOME', PROFESSOR_NOME);  // <-- CORRIGIDO: PROFESSOR → NOME
-
+            .eq('NOME', PROFESSOR_NOME);
         if (error) {
             alert("Erro ao carregar turmas: " + error.message);
             return;
         }
-
-        const sel = document.getElementById('selectAtribuicao');
-        sel.innerHTML = '<option value="">-- Selecione --</option>';
-        
-        data.forEach(at => {
+        ATRIBUICOES_CACHE = data;
+        const disciplinas = [...new Set(data.map(at => at.DISCIPLINA))].sort();
+        const selDisc = document.getElementById('selectDisciplina');
+        selDisc.innerHTML = '<option value="">-- Selecione --</option>';
+        disciplinas.forEach(disc => {
             let opt = document.createElement('option');
-            opt.value = at.TURMA;
-            opt.text = at.DISCIPLINA + " - " + at.TURMA;
-            opt.dataset.disciplina = at.DISCIPLINA;
-            sel.appendChild(opt);
+            opt.value = disc;
+            opt.text = disc;
+            selDisc.appendChild(opt);
+        });
+        const selTurma = document.getElementById('selectTurma');
+        selTurma.innerHTML = '<option value="">-- Selecione --</option>';
+        document.getElementById('corpoTabela').innerHTML = '';
+        document.getElementById('infoAula').style.display = 'none';
+    }
+
+    function filtrarTurmas() {
+        const disciplinaSelecionada = document.getElementById('selectDisciplina').value;
+        const selTurma = document.getElementById('selectTurma');
+        selTurma.innerHTML = '<option value="">-- Selecione --</option>';
+        document.getElementById('corpoTabela').innerHTML = '';
+        document.getElementById('infoAula').style.display = 'none';
+        if (!disciplinaSelecionada) return;
+        const turmasFiltradas = [...new Set(ATRIBUICOES_CACHE
+            .filter(at => at.DISCIPLINA === disciplinaSelecionada)
+            .map(at => at.TURMA))].sort();
+        turmasFiltradas.forEach(turma => {
+            let opt = document.createElement('option');
+            opt.value = turma;
+            opt.text = turma;
+            selTurma.appendChild(opt);
         });
     }
 
     async function carregarAlunosDoBanco() {
-        const sel = document.getElementById('selectAtribuicao');
-        const turma = sel.value;
-        if (!turma) return;
+        const disciplina = document.getElementById('selectDisciplina').value;
+        const turma = document.getElementById('selectTurma').value;
+        
+        if (!turma) {
+            document.getElementById('corpoTabela').innerHTML = '';
+            document.getElementById('infoAula').style.display = 'none';
+            return;
+        }
+
+        // Atualiza info da aula
+        document.getElementById('infoProfessor').innerText = PROFESSOR_NOME;
+        document.getElementById('infoDisciplina').innerText = disciplina;
+        document.getElementById('infoTurma').innerText = turma;
+        document.getElementById('infoAula').style.display = 'block';
 
         const { data: alunos, error } = await _supabase
             .from('alunos')
             .select('*')
             .eq('TURMA', turma)
             .order('NOME');
-        
-        if (error) return alert("Erro ao buscar lista de alunos.");
-
+        if (error) {
+            alert("Erro ao buscar lista de alunos.");
+            return;
+        }
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = '';
-        
         alunos.forEach(al => {
             corpo.innerHTML += `
                 <tr data-aluno="${al.NOME}">
@@ -230,9 +235,10 @@
                     <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
                     <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
                     <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="aulas" value="40"></td>
-                    <td><input type="number" class="faltas" value="0"></td>
+                    <td><input type="number" class="aulas" value="40" oninput="calc(this)"></td>
+                    <td><input type="number" class="faltas" value="0" oninput="calc(this)"></td>
                     <td class="media-res">-</td>
+                    <td class="situacao-col">-</td>
                 </tr>`;
         });
     }
@@ -252,20 +258,45 @@
         const m2 = calcularBloco(v('.v3'), v('.v4'), v('.r2'));
         const final = (m1 + m2) / 2;
 
+        const aulas = v('.aulas');
+        const faltas = v('.faltas');
+        const frequencia = aulas > 0 ? ((aulas - faltas) / aulas) * 100 : 100;
+
         const res = row.querySelector('.media-res');
         res.innerText = final.toFixed(1);
         res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
+
+        // Calcula situação
+        const sitCell = row.querySelector('.situacao-col');
+        let situacao = '';
+        let classe = '';
+
+        if (frequencia < 75) {
+            situacao = 'REPROVADO POR FALTA';
+            classe = 'situacao-falta';
+        } else if (final >= 5) {
+            situacao = 'APROVADO';
+            classe = 'situacao-aprovado';
+        } else {
+            situacao = 'REPROVADO';
+            classe = 'situacao-reprovado';
+        }
+
+        sitCell.innerHTML = '<span class="' + classe + '">' + situacao + '</span>';
     }
 
     async function salvarNoSupabase() {
-        const sel = document.getElementById('selectAtribuicao');
-        if (!sel.value) return alert("Escolha uma turma!");
-
+        const selDisc = document.getElementById('selectDisciplina');
+        const selTurma = document.getElementById('selectTurma');
+        if (!selDisc.value || !selTurma.value) {
+            alert("Escolha a disciplina e a turma!");
+            return;
+        }
         const rows = document.querySelectorAll('#corpoTabela tr');
         const dados = Array.from(rows).map(r => ({
             aluno_nome: r.dataset.aluno,
-            turma: sel.value,
-            disciplina: sel.options[sel.selectedIndex].dataset.disciplina,
+            turma: selTurma.value,
+            disciplina: selDisc.value,
             professor: PROFESSOR_NOME,
             "1AVA": parseFloat(r.querySelector('.v1').value),
             "2AVA": parseFloat(r.querySelector('.v2').value),
@@ -276,9 +307,7 @@
             aulas: parseInt(r.querySelector('.aulas').value),
             faltas: parseInt(r.querySelector('.faltas').value)
         }));
-
         const { error } = await _supabase.from('notas').upsert(dados);
-        
         if (error) alert("Erro ao salvar dados: " + error.message);
         else alert("Diário de classe salvo com sucesso!");
     }
