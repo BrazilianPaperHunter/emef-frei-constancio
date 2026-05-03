@@ -105,7 +105,7 @@
             return;
         }
 
-        // Busca o perfil do Jocivaldo ou Jefferson
+        // Busca o perfil respeitando as colunas em MAIÚSCULAS do seu banco
         const { data: profile, error: profileError } = await _supabase
             .from('profiles')
             .select('NOME, cargo')
@@ -113,13 +113,14 @@
             .maybeSingle();
 
         if (profile) {
+            // Garante que o nome armazenado seja JOCIVALDO (conforme está no banco)
             PROFESSOR_NOME = profile.NOME;
             document.getElementById('nomeBemVindo').innerText = `Bem-vindo, ${profile.NOME}`;
-            document.getElementById('cargoUsuario').innerText = profile.cargo;
+            document.getElementById('cargoUsuario').innerText = (profile.cargo || "").toUpperCase();
         } else {
             console.error("Perfil não encontrado no banco:", profileError);
             document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
-            alert("Usuário logado, mas não existe na tabela 'profiles'. Verifique o ID no Supabase.");
+            alert("O ID logado não foi encontrado na tabela 'profiles'. Verifique o registro do JOCIVALDO.");
         }
     }
 
@@ -131,6 +132,7 @@
         const { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
+            // Busca turmas vinculadas ao nome JOCIVALDO
             .eq('PROFESSOR', PROFESSOR_NOME);
 
         if (error) {
