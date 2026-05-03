@@ -26,6 +26,8 @@
         .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: monospace; font-size: 0.85rem; display: none; }
         .debug-box h4 { margin: 0 0 10px 0; color: #856404; }
         .debug-box div { margin: 5px 0; padding: 3px 0; border-bottom: 1px solid #ffeaa7; }
+        .fix-btn { background: #004a99; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        .fix-btn:hover { background: #003366; }
     </style>
 </head>
 <body>
@@ -42,6 +44,7 @@
         <div id="debugBox" class="debug-box">
             <h4>🔍 Diagnóstico do Sistema</h4>
             <div id="debugContent"></div>
+            <button class="fix-btn" onclick="corrigirPerfil()" id="btnCorrigir" style="display:none;">Corrigir Perfil Automaticamente</button>
         </div>
     </div>
 
@@ -89,13 +92,14 @@
     let _supabase;
     let PROFESSOR_NOME = ""; 
     let USUARIO_ATUAL = null;
+    let PERFIL_ENCONTRADO = null;
 
     function logDebug(msg) {
         console.log(msg);
         const box = document.getElementById('debugBox');
         const content = document.getElementById('debugContent');
         box.style.display = 'block';
-        content.innerHTML += `<div>${msg}</div>`;
+        content.innerHTML += '<div>' + msg + '</div>';
     }
 
     async function inicializarApp() {
@@ -133,14 +137,14 @@
             }
 
             USUARIO_ATUAL = session.user;
-            logDebug("👤 Usuário logado: " + USUARIO_ATUAL.id);
+            logDebug("👤 Usuário logado - ID: " + USUARIO_ATUAL.id);
             logDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
 
             // TENTATIVA 1: Buscar pelo ID (UUID)
             logDebug("🔎 Buscando perfil pelo ID...");
-            let { data: profile, error: errId } = await _supabase
+            const { data: profile, error: errId } = await _supabase
                 .from('profiles')
-                .select('NOME, cargo, MATRICULA, email')
+                .select('NOME, CARGO, MATRICULA')
                 .eq('id', USUARIO_ATUAL.id)
                 .single();
 
@@ -150,62 +154,44 @@
                 return;
             }
 
-            logDebug("⚠️ Perfil NÃO encontrado pelo ID. Erro: " + (errId ? errId.message : "null"));
+            logDebug("⚠️ Perfil NÃO encontrado pelo ID.");
+            if (errId) logDebug("   Erro: " + errId.message);
 
-            // TENTATIVA 2: Buscar pelo email
-            if (USUARIO_ATUAL.email) {
-                logDebug("🔎 Tentando pelo email: " + USUARIO_ATUAL.email);
-                const { data: profileEmail, error: errEmail } = await _supabase
-                    .from('profiles')
-                    .select('NOME, cargo, MATRICULA, id, email')
-                    .eq('email', USUARIO_ATUAL.email)
-                    .single();
-
-                if (profileEmail) {
-                    logDebug("✅ Perfil encontrado pelo email!");
-                    logDebug("📝 Nome: " + profileEmail.NOME + " | Matrícula: " + profileEmail.MATRICULA);
-                    
-                    // Atualiza o ID do perfil para sincronizar com auth
-                    if (profileEmail.id !== USUARIO_ATUAL.id) {
-                        logDebug("🔄 Corrigindo ID do perfil...");
-                        await _supabase
-                            .from('profiles')
-                            .update({ id: USUARIO_ATUAL.id })
-                            .eq('MATRICULA', profileEmail.MATRICULA);
-                        logDebug("✅ ID atualizado com sucesso!");
-                    }
-                    
-                    usarPerfil(profileEmail);
-                    return;
-                }
-                logDebug("❌ Não encontrado pelo email também. Erro: " + (errEmail ? errEmail.message : "null"));
-            }
-
-            // TENTATIVA 3: Listar todos os perfis para debug
-            logDebug("🔎 Listando todos os perfis do banco...");
+            // TENTATIVA 2: Buscar pelo NOME (se o usuário for JOCIVALDO)
+            logDebug("🔎 Tentando buscar todos os perfis...");
             const { data: todosPerfis, error: errTodos } = await _supabase
                 .from('profiles')
-                .select('id, NOME, email, MATRICULA')
-                .limit(10);
+                .select('id, NOME, CARGO, MATRICULA')
+                .order('NOME');
 
-            if (todosPerfis && todosPerfis.length > 0) {
-                logDebug("📋 Perfis encontrados no banco:");
+            if (errTodos) {
+                logDebug("❌ Erro ao listar perfis: " + errTodos.message);
+            } else if (todosPerfis && todosPerfis.length > 0) {
+                logDebug("📋 Perfis cadastrados no banco:");
                 todosPerfis.forEach(p => {
-                    logDebug("   → " + p.NOME + " | ID: " + p.id + " | Email: " + (p.email || "N/A"));
+                    logDebug("   → " + p.NOME + " | ID: " + p.id + " | Matrícula: " + p.MATRICULA);
                 });
+
+                // Tenta encontrar JOCIVALDO
+                const jocivaldo = todosPerfis.find(p => p.NOME && p.NOME.toUpperCase() === 'JOCIVALDO');
+                if (jocivaldo) {
+                    logDebug("🎯 JOCIVALDO encontrado! ID no banco: " + jocivaldo.id);
+                    logDebug("📝 ID do usuário logado: " + USUARIO_ATUAL.id);
+                    
+                    if (jocivaldo.id !== USUARIO_ATUAL.id) {
+                        logDebug("❌ IDs NÃO coincidem! O perfil precisa ser corrigido.");
+                        PERFIL_ENCONTRADO = jocivaldo;
+                        document.getElementById('btnCorrigir').style.display = 'inline-block';
+                        mostrarErroPerfil("IDs não coincidem. Clique em 'Corrigir Perfil' para atualizar.");
+                        return;
+                    }
+                }
             } else {
-                logDebug("❌ Nenhum perfil encontrado na tabela!");
+                logDebug("❌ NENHUM perfil encontrado na tabela!");
             }
 
-            // FALHOU - mostra instruções
-            document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
-            document.getElementById('cargoUsuario').innerText = "Não encontrado";
-            
-            logDebug("💥 FALHA: Nenhum perfil corresponde ao usuário logado.");
-            logDebug("💡 SOLUÇÃO: Execute no SQL Editor:");
-            logDebug("   UPDATE profiles SET id = '" + USUARIO_ATUAL.id + "' WHERE MATRICULA = '002';");
-            logDebug("   -- OU cadastre um novo perfil:");
-            logDebug("   INSERT INTO profiles (id, NOME, cargo, MATRICULA, email) VALUES ('" + USUARIO_ATUAL.id + "', 'JOCIVALDO', 'Professor', '002', '" + USUARIO_ATUAL.email + "');");
+            // FALHOU
+            mostrarErroPerfil("Nenhum perfil corresponde ao usuário logado.");
 
         } catch (err) {
             console.error("Erro geral:", err);
@@ -214,11 +200,40 @@
         }
     }
 
+    function mostrarErroPerfil(motivo) {
+        document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
+        document.getElementById('cargoUsuario').innerText = "Não encontrado";
+        logDebug("💥 FALHA: " + motivo);
+        logDebug("💡 Execute no SQL Editor:");
+        logDebug("   UPDATE profiles SET id = '" + USUARIO_ATUAL.id + "' WHERE MATRICULA = '002';");
+    }
+
+    async function corrigirPerfil() {
+        if (!PERFIL_ENCONTRADO || !USUARIO_ATUAL) return;
+        
+        logDebug("🔄 Corrigindo ID do perfil...");
+        const { error } = await _supabase
+            .from('profiles')
+            .update({ id: USUARIO_ATUAL.id })
+            .eq('MATRICULA', PERFIL_ENCONTRADO.MATRICULA);
+
+        if (error) {
+            logDebug("❌ Erro ao corrigir: " + error.message);
+            alert("Erro ao corrigir perfil: " + error.message);
+            return;
+        }
+
+        logDebug("✅ Perfil corrigido! Recarregando...");
+        document.getElementById('btnCorrigir').style.display = 'none';
+        document.getElementById('debugContent').innerHTML = '';
+        await verificarSessao();
+    }
+
     function usarPerfil(profile) {
         PROFESSOR_NOME = profile.NOME;
         document.getElementById('nomeBemVindo').innerText = "Bem-vindo, " + profile.NOME;
-        document.getElementById('cargoUsuario').innerText = (profile.cargo || "Não definido").toUpperCase();
-        logDebug("🎉 Perfil ativo: " + profile.NOME + " | Cargo: " + profile.cargo);
+        document.getElementById('cargoUsuario').innerText = (profile.CARGO || "Não definido").toUpperCase();
+        logDebug("🎉 Perfil ativo: " + profile.NOME + " | Cargo: " + profile.CARGO);
     }
 
     async function abrirDiario() {
