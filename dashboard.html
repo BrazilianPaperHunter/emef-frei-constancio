@@ -23,7 +23,9 @@
         .media-vermelha { color: #d9534f; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; }
         .btn-salvar:hover { background-color: #218838; }
-        .debug-info { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 0.8rem; display: none; }
+        .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: monospace; font-size: 0.85rem; display: none; }
+        .debug-box h4 { margin: 0 0 10px 0; color: #856404; }
+        .debug-box div { margin: 5px 0; padding: 3px 0; border-bottom: 1px solid #ffeaa7; }
     </style>
 </head>
 <body>
@@ -37,7 +39,10 @@
         <h2 id="nomeBemVindo">Carregando...</h2>
         <p>Gestão Pedagógica - EMEF Frei Constâncio</p>
         <p><strong>Cargo:</strong> <span id="cargoUsuario">-</span></p>
-        <div id="debugInfo" class="debug-info"></div>
+        <div id="debugBox" class="debug-box">
+            <h4>🔍 Diagnóstico do Sistema</h4>
+            <div id="debugContent"></div>
+        </div>
     </div>
 
     <div class="menu-grid">
@@ -85,11 +90,12 @@
     let PROFESSOR_NOME = ""; 
     let USUARIO_ATUAL = null;
 
-    function mostrarDebug(info) {
-        const el = document.getElementById('debugInfo');
-        el.style.display = 'block';
-        el.innerHTML += `<div>${info}</div>`;
-        console.log(info);
+    function logDebug(msg) {
+        console.log(msg);
+        const box = document.getElementById('debugBox');
+        const content = document.getElementById('debugContent');
+        box.style.display = 'block';
+        content.innerHTML += `<div>${msg}</div>`;
     }
 
     async function inicializarApp() {
@@ -100,7 +106,7 @@
             }
             
             _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log("✅ Supabase inicializado");
+            logDebug("✅ Cliente Supabase criado");
             await verificarSessao();
         } catch (err) {
             console.error("Erro na inicialização:", err);
@@ -110,79 +116,109 @@
 
     async function verificarSessao() {
         try {
-            mostrarDebug("🔍 Verificando sessão...");
+            logDebug("🔍 Verificando sessão...");
             
-            // 1. Pega a sessão ativa
             const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
             
             if (sessionError) {
-                mostrarDebug("❌ Erro na sessão: " + sessionError.message);
+                logDebug("❌ Erro na sessão: " + sessionError.message);
                 window.location.href = "login.html";
                 return;
             }
 
             if (!session) {
-                mostrarDebug("⚠️ Nenhuma sessão ativa - redirecionando para login");
+                logDebug("⚠️ Sem sessão ativa - redirecionando...");
                 window.location.href = "login.html";
                 return;
             }
 
             USUARIO_ATUAL = session.user;
-            mostrarDebug("✅ Usuário logado - ID: " + USUARIO_ATUAL.id);
-            mostrarDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
+            logDebug("👤 Usuário logado: " + USUARIO_ATUAL.id);
+            logDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
 
-            // 2. Tenta buscar perfil pelo ID (UUID)
-            let { data: profile, error: profileError } = await _supabase
+            // TENTATIVA 1: Buscar pelo ID (UUID)
+            logDebug("🔎 Buscando perfil pelo ID...");
+            let { data: profile, error: errId } = await _supabase
                 .from('profiles')
-                .select('NOME, cargo, MATRICULA')
+                .select('NOME, cargo, MATRICULA, email')
                 .eq('id', USUARIO_ATUAL.id)
                 .single();
 
-            // 3. Se não encontrar pelo ID, tenta pelo email
-            if (profileError || !profile) {
-                mostrarDebug("⚠️ Perfil não encontrado pelo ID. Tentando pelo email...");
-                
-                const { data: profileByEmail, error: emailError } = await _supabase
+            if (profile) {
+                logDebug("✅ Perfil encontrado pelo ID!");
+                usarPerfil(profile);
+                return;
+            }
+
+            logDebug("⚠️ Perfil NÃO encontrado pelo ID. Erro: " + (errId ? errId.message : "null"));
+
+            // TENTATIVA 2: Buscar pelo email
+            if (USUARIO_ATUAL.email) {
+                logDebug("🔎 Tentando pelo email: " + USUARIO_ATUAL.email);
+                const { data: profileEmail, error: errEmail } = await _supabase
                     .from('profiles')
-                    .select('NOME, cargo, MATRICULA, id')
+                    .select('NOME, cargo, MATRICULA, id, email')
                     .eq('email', USUARIO_ATUAL.email)
                     .single();
 
-                if (profileByEmail) {
-                    profile = profileByEmail;
-                    mostrarDebug("✅ Perfil encontrado pelo email!");
+                if (profileEmail) {
+                    logDebug("✅ Perfil encontrado pelo email!");
+                    logDebug("📝 Nome: " + profileEmail.NOME + " | Matrícula: " + profileEmail.MATRICULA);
                     
-                    // Atualiza o ID do perfil para o ID do auth (correção automática)
-                    if (profile.id !== USUARIO_ATUAL.id) {
-                        mostrarDebug("🔄 Atualizando ID do perfil...");
+                    // Atualiza o ID do perfil para sincronizar com auth
+                    if (profileEmail.id !== USUARIO_ATUAL.id) {
+                        logDebug("🔄 Corrigindo ID do perfil...");
                         await _supabase
                             .from('profiles')
                             .update({ id: USUARIO_ATUAL.id })
-                            .eq('MATRICULA', profile.MATRICULA);
+                            .eq('MATRICULA', profileEmail.MATRICULA);
+                        logDebug("✅ ID atualizado com sucesso!");
                     }
-                } else {
-                    mostrarDebug("❌ Perfil não encontrado pelo email também");
+                    
+                    usarPerfil(profileEmail);
+                    return;
                 }
+                logDebug("❌ Não encontrado pelo email também. Erro: " + (errEmail ? errEmail.message : "null"));
             }
 
-            if (profile) {
-                PROFESSOR_NOME = profile.NOME;
-                document.getElementById('nomeBemVindo').innerText = `Bem-vindo, ${profile.NOME}`;
-                document.getElementById('cargoUsuario').innerText = (profile.cargo || "Não definido").toUpperCase();
-                mostrarDebug("🎉 Perfil carregado: " + profile.NOME + " | Cargo: " + profile.cargo);
+            // TENTATIVA 3: Listar todos os perfis para debug
+            logDebug("🔎 Listando todos os perfis do banco...");
+            const { data: todosPerfis, error: errTodos } = await _supabase
+                .from('profiles')
+                .select('id, NOME, email, MATRICULA')
+                .limit(10);
+
+            if (todosPerfis && todosPerfis.length > 0) {
+                logDebug("📋 Perfis encontrados no banco:");
+                todosPerfis.forEach(p => {
+                    logDebug("   → " + p.NOME + " | ID: " + p.id + " | Email: " + (p.email || "N/A"));
+                });
             } else {
-                console.error("Perfil não encontrado no banco:", profileError);
-                document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
-                document.getElementById('cargoUsuario').innerText = "Não encontrado";
-                mostrarDebug("❌ ERRO: Perfil não existe para este usuário. ID: " + USUARIO_ATUAL.id);
-                mostrarDebug("💡 Solução: Execute no SQL Editor: UPDATE profiles SET id = '" + USUARIO_ATUAL.id + "' WHERE MATRICULA = '002';");
+                logDebug("❌ Nenhum perfil encontrado na tabela!");
             }
+
+            // FALHOU - mostra instruções
+            document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
+            document.getElementById('cargoUsuario').innerText = "Não encontrado";
+            
+            logDebug("💥 FALHA: Nenhum perfil corresponde ao usuário logado.");
+            logDebug("💡 SOLUÇÃO: Execute no SQL Editor:");
+            logDebug("   UPDATE profiles SET id = '" + USUARIO_ATUAL.id + "' WHERE MATRICULA = '002';");
+            logDebug("   -- OU cadastre um novo perfil:");
+            logDebug("   INSERT INTO profiles (id, NOME, cargo, MATRICULA, email) VALUES ('" + USUARIO_ATUAL.id + "', 'JOCIVALDO', 'Professor', '002', '" + USUARIO_ATUAL.email + "');");
 
         } catch (err) {
-            console.error("💥 Erro geral:", err);
+            console.error("Erro geral:", err);
             document.getElementById('nomeBemVindo').innerText = "Erro no sistema";
-            mostrarDebug("💥 Erro: " + err.message);
+            logDebug("💥 Erro crítico: " + err.message);
         }
+    }
+
+    function usarPerfil(profile) {
+        PROFESSOR_NOME = profile.NOME;
+        document.getElementById('nomeBemVindo').innerText = "Bem-vindo, " + profile.NOME;
+        document.getElementById('cargoUsuario').innerText = (profile.cargo || "Não definido").toUpperCase();
+        logDebug("🎉 Perfil ativo: " + profile.NOME + " | Cargo: " + profile.cargo);
     }
 
     async function abrirDiario() {
@@ -209,7 +245,7 @@
         data.forEach(at => {
             let opt = document.createElement('option');
             opt.value = at.TURMA;
-            opt.text = `${at.DISCIPLINA} - ${at.TURMA}`;
+            opt.text = at.DISCIPLINA + " - " + at.TURMA;
             opt.dataset.disciplina = at.DISCIPLINA;
             sel.appendChild(opt);
         });
