@@ -158,7 +158,7 @@
         
         document.getElementById('areaDiario').style.display = 'block';
 
-        // Busca atribuições pela coluna NOME (onde está o nome do professor)
+        // BUSCA PELA COLUNA NOME (onde está o nome do professor na tabela atribuicoes)
         const { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
@@ -253,91 +253,4 @@
         
         alunos.forEach(al => {
             corpo.innerHTML += `
-                <tr data-aluno="${al.NOME}">
-                    <td align="left"><strong>${al.NOME}</strong></td>
-                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="aulas" value="40" oninput="calc(this)"></td>
-                    <td><input type="number" class="faltas" value="0" oninput="calc(this)"></td>
-                    <td class="media-res">-</td>
-                    <td class="situacao-col">-</td>
-                </tr>`;
-        });
-    }
-
-    function calc(el) {
-        const row = el.closest('tr');
-        const v = (c) => parseFloat(row.querySelector(c).value) || 0;
-        
-        const calcularBloco = (p2, p3, rec) => {
-            let mediaNormal = (p2 * 2 + p3 * 3) / 5;
-            let mediaRecP2 = (Math.max(p2, rec) * 2 + p3 * 3) / 5;
-            let mediaRecP3 = (p2 * 2 + Math.max(p3, rec) * 3) / 5;
-            return Math.max(mediaNormal, mediaRecP2, mediaRecP3);
-        };
-
-        const m1 = calcularBloco(v('.v1'), v('.v2'), v('.r1'));
-        const m2 = calcularBloco(v('.v3'), v('.v4'), v('.r2'));
-        const final = (m1 + m2) / 2;
-
-        const aulas = v('.aulas');
-        const faltas = v('.faltas');
-        const frequencia = aulas > 0 ? ((aulas - faltas) / aulas) * 100 : 100;
-
-        const res = row.querySelector('.media-res');
-        res.innerText = final.toFixed(1);
-        res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
-
-        const sitCell = row.querySelector('.situacao-col');
-        let situacao = '';
-        let classe = '';
-
-        if (frequencia < 75) {
-            situacao = 'REPROVADO POR FALTA';
-            classe = 'situacao-falta';
-        } else if (final >= 5) {
-            situacao = 'APROVADO';
-            classe = 'situacao-aprovado';
-        } else {
-            situacao = 'REPROVADO';
-            classe = 'situacao-reprovado';
-        }
-
-        sitCell.innerHTML = '<span class="' + classe + '">' + situacao + '</span>';
-    }
-
-    async function salvarNoSupabase() {
-        const selDisc = document.getElementById('selectDisciplina');
-        const selTurma = document.getElementById('selectTurma');
-        if (!selDisc.value || !selTurma.value) {
-            alert("Escolha a disciplina e a turma!");
-            return;
-        }
-        const rows = document.querySelectorAll('#corpoTabela tr');
-        const dados = Array.from(rows).map(r => ({
-            aluno_nome: r.dataset.aluno,
-            turma: selTurma.value,
-            disciplina: selDisc.value,
-            professor: PROFESSOR_NOME,
-            "1AVA": parseFloat(r.querySelector('.v1').value),
-            "2AVA": parseFloat(r.querySelector('.v2').value),
-            "1REC": parseFloat(r.querySelector('.r1').value),
-            "3AVA": parseFloat(r.querySelector('.v3').value),
-            "4AVA": parseFloat(r.querySelector('.v4').value),
-            "2REC": parseFloat(r.querySelector('.r2').value),
-            aulas: parseInt(r.querySelector('.aulas').value),
-            faltas: parseInt(r.querySelector('.faltas').value)
-        }));
-        const { error } = await _supabase.from('notas').upsert(dados);
-        if (error) alert("Erro ao salvar dados: " + error.message);
-        else alert("Diário de classe salvo com sucesso!");
-    }
-
-    window.onload = inicializarApp;
-</script>
-</body>
-</html>
+               
