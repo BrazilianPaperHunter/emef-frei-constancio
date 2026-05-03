@@ -110,7 +110,8 @@
             <tbody id="corpoTabela"></tbody>
         </table>
         
-        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar Dados no Banco</button>
+        <!-- Nome alterado conforme solicitado -->
+        <button class="btn-salvar" onclick="salvarNoSupabase()">Salvar</button>
         <div style="clear: both;"></div>
     </div>
 </div>
@@ -326,31 +327,45 @@
         sitCell.innerHTML = '<span class="' + classe + '">' + situacao + '</span>';
     }
 
+    // Função ajustada para mapear os campos conforme image_edc1a0.png
     async function salvarNoSupabase() {
         const selDisc = document.getElementById('selectDisciplina');
         const selTurma = document.getElementById('selectTurma');
+        
         if (!selDisc.value || !selTurma.value) {
-            alert("Escolha a disciplina e a turma!");
+            alert("Escolha a disciplina e a turma antes de salvar!");
             return;
         }
+
         const rows = document.querySelectorAll('#corpoTabela tr');
-        const dados = Array.from(rows).map(r => ({
-            aluno_nome: r.dataset.aluno,
-            turma: selTurma.value,
-            disciplina: selDisc.value,
-            professor: PROFESSOR_NOME,
-            "1AVA": parseFloat(r.querySelector('.v1').value),
-            "2AVA": parseFloat(r.querySelector('.v2').value),
-            "1REC": parseFloat(r.querySelector('.r1').value),
-            "3AVA": parseFloat(r.querySelector('.v3').value),
-            "4AVA": parseFloat(r.querySelector('.v4').value),
-            "2REC": parseFloat(r.querySelector('.r2').value),
-            aulas: TOTAL_AULAS,
-            faltas: parseInt(r.querySelector('.faltas').value)
-        }));
-        const { error } = await _supabase.from('notas').upsert(dados);
-        if (error) alert("Erro ao salvar dados: " + error.message);
-        else alert("Diário de classe salvo com sucesso!");
+        const dados = Array.from(rows).map(r => {
+            const v = (c) => parseFloat(r.querySelector(c).value) || 0;
+            return {
+                aluno_nome: r.dataset.aluno,
+                turma: selTurma.value,
+                disciplina: selDisc.value,
+                professor: PROFESSOR_NOME,
+                "1AVA": v('.v1'),
+                "2AVA": v('.v2'),
+                "1REC": v('.r1'),
+                "3AVA": v('.v3'),
+                "4AVA": v('.v4'),
+                "2REC": v('.r2'),
+                faltas: parseInt(r.querySelector('.faltas').value) || 0,
+                media_final: parseFloat(r.querySelector('.media-res').innerText) || 0
+            };
+        });
+
+        // O upsert garante que ele atualize se já existir (baseado no índice único)
+        const { error } = await _supabase
+            .from('notas')
+            .upsert(dados, { onConflict: 'aluno_nome, turma, disciplina' });
+
+        if (error) {
+            alert("Erro ao salvar dados: " + error.message);
+        } else {
+            alert(`Notas de ${selTurma.value} salvas com sucesso no banco!`);
+        }
     }
 
     window.onload = inicializarApp;
