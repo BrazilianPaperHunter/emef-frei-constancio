@@ -26,8 +26,7 @@
         .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 15px; font-family: monospace; font-size: 0.85rem; display: none; }
         .debug-box h4 { margin: 0 0 10px 0; color: #856404; }
         .debug-box div { margin: 5px 0; padding: 3px 0; border-bottom: 1px solid #ffeaa7; }
-        .fix-btn { background: #004a99; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-        .fix-btn:hover { background: #003366; }
+        .erro-rls { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
@@ -42,9 +41,13 @@
         <p>Gestão Pedagógica - EMEF Frei Constâncio</p>
         <p><strong>Cargo:</strong> <span id="cargoUsuario">-</span></p>
         <div id="debugBox" class="debug-box">
-            <h4>🔍 Diagnóstico do Sistema</h4>
+            <h4>🔍 Diagnóstico</h4>
             <div id="debugContent"></div>
-            <button class="fix-btn" onclick="corrigirPerfil()" id="btnCorrigir" style="display:none;">Corrigir Perfil Automaticamente</button>
+        </div>
+        <div id="erroRLS" class="erro-rls">
+            <strong>⚠️ Erro de Permissão (RLS)</strong><br>
+            O Supabase está bloqueando o acesso ao perfil. Execute no SQL Editor:<br>
+            <code>CREATE POLICY "Usuários leem próprio perfil" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);</code>
         </div>
     </div>
 
@@ -92,7 +95,6 @@
     let _supabase;
     let PROFESSOR_NOME = ""; 
     let USUARIO_ATUAL = null;
-    let PERFIL_ENCONTRADO = null;
 
     function logDebug(msg) {
         console.log(msg);
@@ -137,103 +139,41 @@
             }
 
             USUARIO_ATUAL = session.user;
-            logDebug("👤 Usuário logado - ID: " + USUARIO_ATUAL.id);
+            logDebug("👤 Usuário logado: " + USUARIO_ATUAL.id);
             logDebug("📧 Email: " + (USUARIO_ATUAL.email || "N/A"));
 
-            // TENTATIVA 1: Buscar pelo ID (UUID)
-            logDebug("🔎 Buscando perfil pelo ID...");
-            const { data: profile, error: errId } = await _supabase
+            // Busca perfil pelo ID
+            logDebug("🔎 Buscando perfil...");
+            const { data: profile, error: errProfile } = await _supabase
                 .from('profiles')
                 .select('NOME, CARGO, MATRICULA')
                 .eq('id', USUARIO_ATUAL.id)
                 .single();
 
-            if (profile) {
-                logDebug("✅ Perfil encontrado pelo ID!");
-                usarPerfil(profile);
+            if (errProfile) {
+                logDebug("❌ Erro na query: " + errProfile.message);
+                if (errProfile.message.includes('row-level security') || errProfile.code === '42501') {
+                    document.getElementById('erroRLS').style.display = 'block';
+                }
+                document.getElementById('nomeBemVindo').innerText = "Erro de permissão";
                 return;
             }
 
-            logDebug("⚠️ Perfil NÃO encontrado pelo ID.");
-            if (errId) logDebug("   Erro: " + errId.message);
-
-            // TENTATIVA 2: Buscar pelo NOME (se o usuário for JOCIVALDO)
-            logDebug("🔎 Tentando buscar todos os perfis...");
-            const { data: todosPerfis, error: errTodos } = await _supabase
-                .from('profiles')
-                .select('id, NOME, CARGO, MATRICULA')
-                .order('NOME');
-
-            if (errTodos) {
-                logDebug("❌ Erro ao listar perfis: " + errTodos.message);
-            } else if (todosPerfis && todosPerfis.length > 0) {
-                logDebug("📋 Perfis cadastrados no banco:");
-                todosPerfis.forEach(p => {
-                    logDebug("   → " + p.NOME + " | ID: " + p.id + " | Matrícula: " + p.MATRICULA);
-                });
-
-                // Tenta encontrar JOCIVALDO
-                const jocivaldo = todosPerfis.find(p => p.NOME && p.NOME.toUpperCase() === 'JOCIVALDO');
-                if (jocivaldo) {
-                    logDebug("🎯 JOCIVALDO encontrado! ID no banco: " + jocivaldo.id);
-                    logDebug("📝 ID do usuário logado: " + USUARIO_ATUAL.id);
-                    
-                    if (jocivaldo.id !== USUARIO_ATUAL.id) {
-                        logDebug("❌ IDs NÃO coincidem! O perfil precisa ser corrigido.");
-                        PERFIL_ENCONTRADO = jocivaldo;
-                        document.getElementById('btnCorrigir').style.display = 'inline-block';
-                        mostrarErroPerfil("IDs não coincidem. Clique em 'Corrigir Perfil' para atualizar.");
-                        return;
-                    }
-                }
+            if (profile) {
+                PROFESSOR_NOME = profile.NOME;
+                document.getElementById('nomeBemVindo').innerText = "Bem-vindo, " + profile.NOME;
+                document.getElementById('cargoUsuario').innerText = (profile.CARGO || "Não definido").toUpperCase();
+                logDebug("🎉 Perfil carregado: " + profile.NOME + " | Cargo: " + profile.CARGO);
             } else {
-                logDebug("❌ NENHUM perfil encontrado na tabela!");
+                logDebug("❌ Perfil não encontrado para ID: " + USUARIO_ATUAL.id);
+                document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
             }
-
-            // FALHOU
-            mostrarErroPerfil("Nenhum perfil corresponde ao usuário logado.");
 
         } catch (err) {
             console.error("Erro geral:", err);
             document.getElementById('nomeBemVindo').innerText = "Erro no sistema";
             logDebug("💥 Erro crítico: " + err.message);
         }
-    }
-
-    function mostrarErroPerfil(motivo) {
-        document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
-        document.getElementById('cargoUsuario').innerText = "Não encontrado";
-        logDebug("💥 FALHA: " + motivo);
-        logDebug("💡 Execute no SQL Editor:");
-        logDebug("   UPDATE profiles SET id = '" + USUARIO_ATUAL.id + "' WHERE MATRICULA = '002';");
-    }
-
-    async function corrigirPerfil() {
-        if (!PERFIL_ENCONTRADO || !USUARIO_ATUAL) return;
-        
-        logDebug("🔄 Corrigindo ID do perfil...");
-        const { error } = await _supabase
-            .from('profiles')
-            .update({ id: USUARIO_ATUAL.id })
-            .eq('MATRICULA', PERFIL_ENCONTRADO.MATRICULA);
-
-        if (error) {
-            logDebug("❌ Erro ao corrigir: " + error.message);
-            alert("Erro ao corrigir perfil: " + error.message);
-            return;
-        }
-
-        logDebug("✅ Perfil corrigido! Recarregando...");
-        document.getElementById('btnCorrigir').style.display = 'none';
-        document.getElementById('debugContent').innerHTML = '';
-        await verificarSessao();
-    }
-
-    function usarPerfil(profile) {
-        PROFESSOR_NOME = profile.NOME;
-        document.getElementById('nomeBemVindo').innerText = "Bem-vindo, " + profile.NOME;
-        document.getElementById('cargoUsuario').innerText = (profile.CARGO || "Não definido").toUpperCase();
-        logDebug("🎉 Perfil ativo: " + profile.NOME + " | Cargo: " + profile.CARGO);
     }
 
     async function abrirDiario() {
@@ -329,12 +269,13 @@
             turma: sel.value,
             disciplina: sel.options[sel.selectedIndex].dataset.disciplina,
             professor: PROFESSOR_NOME,
-            nota1: parseFloat(r.querySelector('.v1').value),
-            nota2: parseFloat(r.querySelector('.v2').value),
-            rec1: parseFloat(r.querySelector('.r1').value),
-            nota3: parseFloat(r.querySelector('.v3').value),
-            nota4: parseFloat(r.querySelector('.v4').value),
-            rec2: parseFloat(r.querySelector('.r2').value),
+            "1AVA": parseFloat(r.querySelector('.v1').value),
+            "2AVA": parseFloat(r.querySelector('.v2').value),
+            "1REC": parseFloat(r.querySelector('.r1').value),
+            "3AVA": parseFloat(r.querySelector('.v3').value),
+            "4AVA": parseFloat(r.querySelector('.v4').value),
+            "2REC": parseFloat(r.querySelector('.r2').value),
+            aulas: parseInt(r.querySelector('.aulas').value),
             faltas: parseInt(r.querySelector('.faltas').value)
         }));
 
