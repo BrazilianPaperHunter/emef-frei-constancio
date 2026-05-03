@@ -34,8 +34,6 @@
         .situacao-falta { background-color: #fff3cd; color: #856404; font-weight: bold; padding: 5px 10px; border-radius: 4px; }
         .btn-salvar { background-color: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; float: right; }
         .btn-salvar:hover { background-color: #218838; }
-        .debug-box { background: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 8px; margin-top: 10px; font-family: monospace; font-size: 0.8rem; }
-        .debug-box div { margin: 3px 0; }
     </style>
 </head>
 <body>
@@ -65,8 +63,6 @@
             <p><strong>Disciplina:</strong> <span id="infoDisciplina">-</span></p>
             <p><strong>Turma:</strong> <span id="infoTurma">-</span></p>
         </div>
-
-        <div id="debugDiario" class="debug-box" style="display:none;"></div>
         
         <div class="select-row">
             <div class="select-group">
@@ -115,13 +111,6 @@
     let USUARIO_ATUAL = null;
     let ATRIBUICOES_CACHE = [];
 
-    function logDebug(msg) {
-        console.log(msg);
-        const box = document.getElementById('debugDiario');
-        box.style.display = 'block';
-        box.innerHTML += '<div>' + msg + '</div>';
-    }
-
     async function inicializarApp() {
         try {
             if (typeof supabase === 'undefined') {
@@ -168,84 +157,27 @@
         }
         
         document.getElementById('areaDiario').style.display = 'block';
-        document.getElementById('debugDiario').innerHTML = '';
-        document.getElementById('debugDiario').style.display = 'none';
-        
-        logDebug("🔍 Professor logado: " + PROFESSOR_NOME);
 
-        // Busca TODAS as atribuições para verificar estrutura
-        logDebug("🔎 Buscando TODAS as atribuições do banco...");
-        const { data: todasAtribuicoes, error: errTodas } = await _supabase
+        // Busca atribuições pela coluna NOME (onde está o nome do professor)
+        const { data, error } = await _supabase
             .from('atribuicoes')
             .select('*')
-            .limit(20);
+            .eq('NOME', PROFESSOR_NOME);
 
-        if (errTodas) {
-            logDebug("❌ Erro ao buscar atribuições: " + errTodas.message);
+        if (error) {
+            alert("Erro ao carregar turmas: " + error.message);
             return;
         }
 
-        if (!todasAtribuicoes || todasAtribuicoes.length === 0) {
-            logDebug("❌ Tabela 'atribuicoes' está vazia!");
+        if (!data || data.length === 0) {
+            alert("Nenhuma atribuição encontrada para " + PROFESSOR_NOME);
             return;
         }
 
-        // Mostra as colunas disponíveis na primeira linha
-        const colunas = Object.keys(todasAtribuicoes[0]);
-        logDebug("📋 Colunas na tabela: " + colunas.join(', '));
-
-        // Lista todos os professores encontrados
-        const professoresUnicos = [...new Set(todasAtribuicoes.map(a => a.NOME || a.PROFESSOR || a.nome || a.professor).filter(Boolean))];
-        logDebug("👥 Professores encontrados: " + professoresUnicos.join(', '));
-
-        // Filtra as do professor logado
-        let atribuicoesProfessor = todasAtribuicoes.filter(at => {
-            const nomeProf = at.NOME || at.PROFESSOR || at.nome || at.professor || '';
-            return nomeProf.toUpperCase() === PROFESSOR_NOME.toUpperCase();
-        });
-
-        logDebug("🎯 Atribuições do " + PROFESSOR_NOME + ": " + atribuicoesProfessor.length);
-
-        // Se não encontrou, tenta buscar diretamente
-        if (atribuicoesProfessor.length === 0) {
-            logDebug("⚠️ Não encontrou filtrando. Tentando busca direta por NOME...");
-            const { data: porNome, error: errNome } = await _supabase
-                .from('atribuicoes')
-                .select('*')
-                .eq('NOME', PROFESSOR_NOME);
-
-            if (porNome && porNome.length > 0) {
-                atribuicoesProfessor = porNome;
-                logDebug("✅ Encontrado por NOME: " + porNome.length);
-            } else {
-                logDebug("⚠️ Tentando busca por PROFESSOR...");
-                const { data: porProf, error: errProf } = await _supabase
-                    .from('atribuicoes')
-                    .select('*')
-                    .eq('PROFESSOR', PROFESSOR_NOME);
-                
-                if (porProf && porProf.length > 0) {
-                    atribuicoesProfessor = porProf;
-                    logDebug("✅ Encontrado por PROFESSOR: " + porProf.length);
-                }
-            }
-        }
-
-        if (atribuicoesProfessor.length === 0) {
-            logDebug("❌ Nenhuma atribuição encontrada para: " + PROFESSOR_NOME);
-            logDebug("💡 Verifique se o nome está igual na tabela 'atribuicoes'");
-            return;
-        }
-
-        ATRIBUICOES_CACHE = atribuicoesProfessor;
+        ATRIBUICOES_CACHE = data;
         
-        // Log das atribuições
-        atribuicoesProfessor.forEach((at, i) => {
-            logDebug("   → " + (i+1) + ". " + at.DISCIPLINA + " - " + at.TURMA);
-        });
-
-        const disciplinas = [...new Set(atribuicoesProfessor.map(at => at.DISCIPLINA))].sort();
-        logDebug("📚 Disciplinas: " + disciplinas.join(', '));
+        // Extrai disciplinas únicas
+        const disciplinas = [...new Set(data.map(at => at.DISCIPLINA))].sort();
         
         const selDisc = document.getElementById('selectDisciplina');
         selDisc.innerHTML = '<option value="">-- Selecione --</option>';
