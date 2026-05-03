@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMEF Frei Constâncio - Login</title>
-    <!-- Biblioteca do Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
@@ -25,7 +24,6 @@
 </div>
 
 <script>
-    // Substitua pelos dados do seu Supabase (Project Settings > API)
     const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
     
@@ -42,11 +40,25 @@
 
         if (error) {
             alert("Erro: " + error.message);
-        } else {
-            alert("Login realizado! Bem-vindo, Coordenador.");
-            window.location.href = 'dashboard.html';
-            // Depois criaremos a página de destino
+            return;
         }
+
+        // Busca o CARGO real do perfil no banco
+        const userId = data.user.id;
+        const { data: profile, error: profileError } = await _supabase
+            .from('profiles')
+            .select('NOME, CARGO')
+            .eq('id', userId)
+            .single();
+
+        if (profileError || !profile) {
+            alert("Login realizado! Bem-vindo.");
+        } else {
+            const cargoFormatado = profile.CARGO ? profile.CARGO.toLowerCase() : 'usuário';
+            alert("Login realizado! Bem-vindo, " + cargoFormatado + ".");
+        }
+
+        window.location.href = 'dashboard.html';
     }
 </script>
 
