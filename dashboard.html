@@ -78,26 +78,25 @@
 </div>
 
 <script>
-    // Configurações Globais
     const SUPABASE_URL = 'https://rtupkottdmtuxeumzwjd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Y4UYgwz6_dUcLtk2oW3P-A_BucVzN3a';
     let _supabase;
     let PROFESSOR_NOME = ""; 
 
-    // 1. Inicialização Única
     async function inicializarApp() {
         try {
-            if (typeof supabase === 'undefined') throw new Error("Biblioteca Supabase não carregada!");
-            
+            if (typeof supabase === 'undefined') {
+                document.getElementById('nomeBemVindo').innerText = "Erro: Biblioteca não carregada";
+                return;
+            }
             _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             await verificarSessao();
         } catch (err) {
-            document.getElementById('nomeBemVindo').innerText = "Erro de Inicialização";
-            console.error(err);
+            console.error("Erro na inicialização:", err);
+            document.getElementById('nomeBemVindo').innerText = "Erro ao conectar ao banco";
         }
     }
 
-    // 2. Verificação de Usuário e Perfil
     async function verificarSessao() {
         const { data: { user }, error: authError } = await _supabase.auth.getUser();
 
@@ -106,25 +105,26 @@
             return;
         }
 
+        // Busca o perfil do Jocivaldo ou Jefferson
         const { data: profile, error: profileError } = await _supabase
             .from('profiles')
             .select('NOME, cargo')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
 
         if (profile) {
             PROFESSOR_NOME = profile.NOME;
             document.getElementById('nomeBemVindo').innerText = `Bem-vindo, ${profile.NOME}`;
             document.getElementById('cargoUsuario').innerText = profile.cargo;
         } else {
-            console.error("Perfil não encontrado:", profileError);
-            document.getElementById('nomeBemVindo').innerText = "Erro ao carregar perfil";
+            console.error("Perfil não encontrado no banco:", profileError);
+            document.getElementById('nomeBemVindo').innerText = "Perfil não cadastrado";
+            alert("Usuário logado, mas não existe na tabela 'profiles'. Verifique o ID no Supabase.");
         }
     }
 
-    // 3. Carregar Atribuições (Turmas)
     async function abrirDiario() {
-        if (!PROFESSOR_NOME) return alert("Aguarde o carregamento do perfil ou faça login novamente.");
+        if (!PROFESSOR_NOME) return alert("Aguarde o carregamento do perfil.");
         
         document.getElementById('areaDiario').style.display = 'block';
         
@@ -133,7 +133,10 @@
             .select('*')
             .eq('PROFESSOR', PROFESSOR_NOME);
 
-        if (error) return console.error("Erro ao carregar atribuições:", error);
+        if (error) {
+            alert("Erro ao carregar turmas: " + error.message);
+            return;
+        }
 
         const sel = document.getElementById('selectAtribuicao');
         sel.innerHTML = '<option value="">-- Selecione --</option>';
@@ -147,7 +150,6 @@
         });
     }
 
-    // 4. Buscar Alunos
     async function carregarAlunosDoBanco() {
         const sel = document.getElementById('selectAtribuicao');
         const turma = sel.value;
@@ -159,7 +161,7 @@
             .eq('TURMA', turma)
             .order('NOME');
         
-        if (error) return alert("Erro ao carregar alunos.");
+        if (error) return alert("Erro ao buscar lista de alunos.");
 
         const corpo = document.getElementById('corpoTabela');
         corpo.innerHTML = '';
@@ -168,12 +170,12 @@
             corpo.innerHTML += `
                 <tr data-aluno="${al.NOME}">
                     <td align="left"><strong>${al.NOME}</strong></td>
-                    <td><input type="number" class="v1" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v2" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r1" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v3" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="v4" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
-                    <td><input type="number" class="r2" step="0.1" min="0" max="10" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v1" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v2" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="r1" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v3" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="v4" step="0.1" value="0" oninput="calc(this)"></td>
+                    <td><input type="number" class="r2" step="0.1" value="0" oninput="calc(this)"></td>
                     <td><input type="number" class="aulas" value="40"></td>
                     <td><input type="number" class="faltas" value="0"></td>
                     <td class="media-res">-</td>
@@ -181,7 +183,6 @@
         });
     }
 
-    // 5. Lógica de Cálculo de Média (Conforme sua regra de negócio)
     function calc(el) {
         const row = el.closest('tr');
         const v = (c) => parseFloat(row.querySelector(c).value) || 0;
@@ -202,10 +203,9 @@
         res.className = 'media-res ' + (final >= 5 ? 'media-azul' : 'media-vermelha');
     }
 
-    // 6. Persistência no Banco
     async function salvarNoSupabase() {
         const sel = document.getElementById('selectAtribuicao');
-        if (!sel.value) return alert("Selecione uma turma antes de salvar.");
+        if (!sel.value) return alert("Escolha uma turma!");
 
         const rows = document.querySelectorAll('#corpoTabela tr');
         const dados = Array.from(rows).map(r => ({
@@ -222,16 +222,12 @@
             faltas: parseInt(r.querySelector('.faltas').value)
         }));
 
-        const { error } = await _supabase.from('notas').upsert(dados, { onConflict: 'aluno_nome, turma, disciplina' });
+        const { error } = await _supabase.from('notas').upsert(dados);
         
-        if (error) {
-            alert("Erro ao salvar: " + error.message);
-        } else {
-            alert("Notas salvas com sucesso!");
-        }
+        if (error) alert("Erro ao salvar dados: " + error.message);
+        else alert("Diário de classe salvo com sucesso!");
     }
 
-    // Disparo Inicial
     window.onload = inicializarApp;
 </script>
 </body>
